@@ -1,10 +1,30 @@
 #!/usr/bin/env python3
 
 import argparse
+import logging
+import os
+import sys
+
+import nv2a_vsh_asm
 
 
 def main(args):
-    return 1
+    log_level = logging.DEBUG if args.verbose else logging.INFO
+    logging.basicConfig(level=log_level)
+
+    if not os.path.isfile(args.input):
+        print(f"Failed to open input file '{args.input}'", file=sys.stderr)
+        return 1
+
+    with open(args.input, "r") as infile:
+        asm = nv2a_vsh_asm.Assembler(infile.read())
+
+    asm.assemble()
+
+    if args.output:
+        raise Exception("TODO: FINISHME")
+    print(asm.output)
+    return 0
 
 
 if __name__ == "__main__":
@@ -23,6 +43,13 @@ if __name__ == "__main__":
             nargs="?",
             metavar="target_path",
             help="Path to write the .inl output.",
+        )
+
+        parser.add_argument(
+            "-v",
+            "--verbose",
+            help="Enables verbose logging information",
+            action="store_true",
         )
 
         return parser.parse_args()
