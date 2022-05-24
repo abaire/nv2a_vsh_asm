@@ -26,27 +26,13 @@
 """
 
 import collections
+import ctypes
 import enum
 from typing import List, Optional, Tuple
 
-SWIZZLE_X = 0
-SWIZZLE_Y = 1
-SWIZZLE_Z = 2
-SWIZZLE_W = 3
-SWIZZLE_ZERO = 4
-SWIZZLE_ONE = 5
-SWIZZLE_NIL = 7
-
-PARAM_UNKNOWN = 0
-PARAM_R = 1
-PARAM_V = 2
-PARAM_C = 3
-
-OUTPUT_C = 0
-OUTPUT_O = 1
-
-OMUX_MAC = 0
-OMUX_ILU = 1
+from . import vsh_instruction
+from .vsh_encoder_defs import *
+from .vsh_instruction import vsh_diff_instructions
 
 
 class InputRegisters(enum.IntEnum):
@@ -117,10 +103,6 @@ def make_swizzle(
     return ((a) << 0) | ((b) << 3) | ((c) << 6) | ((d) << 9)
 
 
-def _get_swizzle(swz, idx):
-    return ((swz) >> ((idx) * 3)) & 0x7
-
-
 _SWIZZLE_NAME = {
     SWIZZLE_X: "x",
     SWIZZLE_Y: "y",
@@ -132,7 +114,7 @@ _SWIZZLE_NAME = {
 def get_swizzle_name(swizzle):
     ret = ""
     for i in range(4):
-        ret += _SWIZZLE_NAME[_get_swizzle(swizzle, i)]
+        ret += _SWIZZLE_NAME[vsh_instruction.get_swizzle(swizzle, i)]
     return ret
 
 
@@ -412,45 +394,6 @@ _FieldMapping = collections.namedtuple(
     "_FieldMapping", ["subtoken", "start_bit", "bit_length"]
 )
 
-_Mapping = {
-    _VshField.FLD_ILU: _FieldMapping(1, 25, 3),
-    _VshField.FLD_MAC: _FieldMapping(1, 21, 4),
-    _VshField.FLD_CONST: _FieldMapping(1, 13, 8),
-    _VshField.FLD_V: _FieldMapping(1, 9, 4),
-    _VshField.FLD_A_NEG: _FieldMapping(1, 8, 1),
-    _VshField.FLD_A_SWZ_X: _FieldMapping(1, 6, 2),
-    _VshField.FLD_A_SWZ_Y: _FieldMapping(1, 4, 2),
-    _VshField.FLD_A_SWZ_Z: _FieldMapping(1, 2, 2),
-    _VshField.FLD_A_SWZ_W: _FieldMapping(1, 0, 2),
-    _VshField.FLD_A_R: _FieldMapping(2, 28, 4),
-    _VshField.FLD_A_MUX: _FieldMapping(2, 26, 2),
-    _VshField.FLD_B_NEG: _FieldMapping(2, 25, 1),
-    _VshField.FLD_B_SWZ_X: _FieldMapping(2, 23, 2),
-    _VshField.FLD_B_SWZ_Y: _FieldMapping(2, 21, 2),
-    _VshField.FLD_B_SWZ_Z: _FieldMapping(2, 19, 2),
-    _VshField.FLD_B_SWZ_W: _FieldMapping(2, 17, 2),
-    _VshField.FLD_B_R: _FieldMapping(2, 13, 4),
-    _VshField.FLD_B_MUX: _FieldMapping(2, 11, 2),
-    _VshField.FLD_C_NEG: _FieldMapping(2, 10, 1),
-    _VshField.FLD_C_SWZ_X: _FieldMapping(2, 8, 2),
-    _VshField.FLD_C_SWZ_Y: _FieldMapping(2, 6, 2),
-    _VshField.FLD_C_SWZ_Z: _FieldMapping(2, 4, 2),
-    _VshField.FLD_C_SWZ_W: _FieldMapping(2, 2, 2),
-    _VshField.FLD_C_R_HIGH: _FieldMapping(2, 0, 2),
-    # kkjj iiii hhhh gggg ffff eddd dddd dcba
-    _VshField.FLD_C_R_LOW: _FieldMapping(3, 30, 2),  # k
-    _VshField.FLD_C_MUX: _FieldMapping(3, 28, 2),  # j
-    _VshField.FLD_OUT_MAC_MASK: _FieldMapping(3, 24, 4),  # i
-    _VshField.FLD_OUT_R: _FieldMapping(3, 20, 4),  # h
-    _VshField.FLD_OUT_ILU_MASK: _FieldMapping(3, 16, 4),  # g
-    _VshField.FLD_OUT_O_MASK: _FieldMapping(3, 12, 4),  # f
-    _VshField.FLD_OUT_ORB: _FieldMapping(3, 11, 1),  # e
-    _VshField.FLD_OUT_ADDRESS: _FieldMapping(3, 3, 8),  # d
-    _VshField.FLD_OUT_MUX: _FieldMapping(3, 2, 1),  # c
-    _VshField.FLD_A0X: _FieldMapping(3, 1, 1),  # b
-    _VshField.FLD_FINAL: _FieldMapping(3, 0, 1),  # a
-}
-
 
 def _get_field_val(vsh_ins: List[int], mapping: _FieldMapping) -> int:
     val = vsh_ins[mapping.subtoken]
@@ -459,200 +402,92 @@ def _get_field_val(vsh_ins: List[int], mapping: _FieldMapping) -> int:
     return val
 
 
-def vsh_diff_instructions(
-    expected: List[int], actual: List[int], ignore_final_flag=False
-) -> str:
-    """Provides a verbose explanation of the difference of two encoded instructions.
-
-    :return "" if the instructions match, else a string explaining the delta.
-    """
-
-    differences = []
-    if expected[0] != actual[0]:
-        assert expected[0] == 0
-        differences.append(f"Invalid instruction, [0](0x{actual[0]:08x} must == 0")
-
-    for field, mapping in _Mapping.items():
-        if ignore_final_flag and field == _VshField.FLD_FINAL:
-            continue
-
-        e_val = _get_field_val(expected, mapping)
-        a_val = _get_field_val(actual, mapping)
-
-        if e_val != a_val:
-            name = str(field)[10:]
-
-            differences.append(
-                f"{name} 0x{e_val:x} ({e_val:0{mapping.bit_length}b}) != actual 0x{a_val:x} ({a_val:0{mapping.bit_length}b})"
-            )
-
-    if not differences:
-        return ""
-
-    return (
-        (
-            "Instructions differ.\n"
-            f"\t0x{expected[0]:08x} 0x{expected[1]:08x} 0x{expected[2]:08x} 0x{expected[3]:08x}\n"
-            f"\t0x{actual[0]:08x} 0x{actual[1]:08x} 0x{actual[2]:08x} 0x{actual[3]:08x}\n"
-            "\n\t"
-        )
-        + "\n\t".join(differences)
-        + "\n"
-    )
-
-
-_mux_field = (_VshField.FLD_A_MUX, _VshField.FLD_B_MUX, _VshField.FLD_C_MUX)
-_swizzle_field = (
-    (
-        _VshField.FLD_A_SWZ_X,
-        _VshField.FLD_A_SWZ_Y,
-        _VshField.FLD_A_SWZ_Z,
-        _VshField.FLD_A_SWZ_W,
-    ),
-    (
-        _VshField.FLD_B_SWZ_X,
-        _VshField.FLD_B_SWZ_Y,
-        _VshField.FLD_B_SWZ_Z,
-        _VshField.FLD_B_SWZ_W,
-    ),
-    (
-        _VshField.FLD_C_SWZ_X,
-        _VshField.FLD_C_SWZ_Y,
-        _VshField.FLD_C_SWZ_Z,
-        _VshField.FLD_C_SWZ_W,
-    ),
-)
-_reg_field = (_VshField.FLD_A_R, _VshField.FLD_B_R, _VshField.FLD_C_R)
-_neg_field = (_VshField.FLD_A_NEG, _VshField.FLD_B_NEG, _VshField.FLD_C_NEG)
-
-
-class ILU(enum.IntEnum):
-    ILU_NOP = 0
-    ILU_MOV = 1
-    ILU_RCP = 2
-    ILU_RCC = 3
-    ILU_RSQ = 4
-    ILU_EXP = 5
-    ILU_LOG = 6
-    ILU_LIT = 7
-
-
-class MAC(enum.IntEnum):
-    MAC_NOP = 0
-    MAC_MOV = 1
-    MAC_MUL = 2
-    MAC_ADD = 3
-    MAC_MAD = 4
-    MAC_DP3 = 5
-    MAC_DPH = 6
-    MAC_DP4 = 7
-    MAC_DST = 8
-    MAC_MIN = 9
-    MAC_MAX = 10
-    MAC_SLT = 11
-    MAC_SGE = 12
-    MAC_ARL = 13
-
-
-def _vsh_set_field(out: List[int], field_name: _VshField, v: int):
-    if field_name == _VshField.FLD_C_R:
-        _vsh_set_field(out, _VshField.FLD_C_R_LOW, v & 3)
-        _vsh_set_field(out, _VshField.FLD_C_R_HIGH, (v >> 2))
-        return
-
-    f = _Mapping[field_name]
-
-    f_bits = (1 << int(f.bit_length)) - 1
-    new_val = out[f.subtoken]
-    new_val &= ~(f_bits << int(f.start_bit))
-    new_val |= (v & f_bits) << f.start_bit
-    out[f.subtoken] = new_val
-
-
-def _process_opcode(ins: Instruction, out: List[int]) -> Tuple[bool, bool]:
+def _process_opcode(
+    ins: Instruction, out: vsh_instruction.VshInstruction
+) -> Tuple[bool, bool]:
     def _set(opcode: Opcode, mov_is_ilu=False):
         ilu = False
         mac = False
         if opcode == Opcode.OPCODE_MOV:
             if mov_is_ilu:
-                _vsh_set_field(out, _VshField.FLD_ILU, ILU.ILU_MOV)
+                out.ilu = ILU.ILU_MOV
                 ilu = True
             else:
-                _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_MOV)
+                out.mac = MAC.MAC_MOV
                 mac = True
 
         elif opcode == Opcode.OPCODE_ADD:
-            _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_ADD)
+            out.mac = MAC.MAC_ADD
             mac = True
 
         elif opcode == Opcode.OPCODE_SUB:
-            _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_ADD)
-            _vsh_set_field(out, _VshField.FLD_C_NEG, 1)
+            out.mac = MAC.MAC_ADD
+            out.c_negate = True
             mac = True
             raise Exception("TODO: xor negated args")
 
         elif opcode == Opcode.OPCODE_MAD:
-            _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_MAD)
+            out.mac = MAC.MAC_MAD
             mac = True
 
         elif opcode == Opcode.OPCODE_MUL:
-            _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_MUL)
+            out.mac = MAC.MAC_MUL
             mac = True
 
         elif opcode == Opcode.OPCODE_MAX:
-            _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_MAX)
+            out.mac = MAC.MAC_MAX
             mac = True
 
         elif opcode == Opcode.OPCODE_MIN:
-            _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_MIN)
+            out.mac = MAC.MAC_MIN
             mac = True
 
         elif opcode == Opcode.OPCODE_SGE:
-            _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_SGE)
+            out.mac = MAC.MAC_SGE
             mac = True
 
         elif opcode == Opcode.OPCODE_SLT:
-            _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_SLT)
+            out.mac = MAC.MAC_SLT
             mac = True
 
         elif opcode == Opcode.OPCODE_DP3:
-            _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_DP3)
+            out.mac = MAC.MAC_DP3
             mac = True
 
         elif opcode == Opcode.OPCODE_DP4:
-            _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_DP4)
+            out.mac = MAC.MAC_DP4
             mac = True
 
         elif opcode == Opcode.OPCODE_DPH:
-            _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_DPH)
+            out.mac = MAC.MAC_DPH
             mac = True
 
         elif opcode == Opcode.OPCODE_DST:
-            _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_DST)
+            out.mac = MAC.MAC_DST
             mac = True
 
         elif opcode == Opcode.OPCODE_RCP:
-            _vsh_set_field(out, _VshField.FLD_ILU, ILU.ILU_RCP)
+            out.ilu = ILU.ILU_RCP
             ilu = True
 
         elif opcode == Opcode.OPCODE_RCC:
-            _vsh_set_field(out, _VshField.FLD_ILU, ILU.ILU_RCC)
+            out.ilu = ILU.ILU_RCC
             ilu = True
 
         elif opcode == Opcode.OPCODE_RSQ:
-            _vsh_set_field(out, _VshField.FLD_ILU, ILU.ILU_RSQ)
+            out.ilu = ILU.ILU_RSQ
             ilu = True
 
         elif opcode == Opcode.OPCODE_EXP:
-            _vsh_set_field(out, _VshField.FLD_ILU, ILU.ILU_EXP)
+            out.ilu = ILU.ILU_EXP
             ilu = True
 
         elif opcode == Opcode.OPCODE_LOG:
-            _vsh_set_field(out, _VshField.FLD_ILU, ILU.ILU_LOG)
+            out.ilu = ILU.ILU_LOG
             ilu = True
 
         elif opcode == Opcode.OPCODE_LIT:
-            _vsh_set_field(out, _VshField.FLD_ILU, ILU.ILU_LIT)
+            out.ilu = ILU.ILU_LIT
             ilu = True
 
         else:
@@ -678,50 +513,49 @@ def _process_opcode(ins: Instruction, out: List[int]) -> Tuple[bool, bool]:
 
 
 def _process_destination(
-    dst_reg: Optional[DestinationRegister], ilu: bool, mac: bool, vsh_ins: List[int]
+    dst_reg: Optional[DestinationRegister],
+    ilu: bool,
+    mac: bool,
+    vsh_ins: vsh_instruction.VshInstruction,
 ):
     if not dst_reg:
         return
 
     if dst_reg.file == RegisterFile.PROGRAM_TEMPORARY:
-        _vsh_set_field(vsh_ins, _VshField.FLD_OUT_R, dst_reg.index)
+        vsh_ins.out_r = dst_reg.index
         if mac:
-            _vsh_set_field(
-                vsh_ins, _VshField.FLD_OUT_MAC_MASK, _vsh_mask[dst_reg.write_mask]
-            )
+            vsh_ins.out_mac_mask = _vsh_mask[dst_reg.write_mask]
         elif ilu:
-            _vsh_set_field(
-                vsh_ins, _VshField.FLD_OUT_ILU_MASK, _vsh_mask[dst_reg.write_mask]
-            )
+            vsh_ins.out_ilu_mask = _vsh_mask[dst_reg.write_mask]
         return
 
     if dst_reg.file == RegisterFile.PROGRAM_OUTPUT:
-        _vsh_set_field(vsh_ins, _VshField.FLD_OUT_O_MASK, _vsh_mask[dst_reg.write_mask])
+        vsh_ins.out_o_mask = _vsh_mask[dst_reg.write_mask]
         if mac:
-            _vsh_set_field(vsh_ins, _VshField.FLD_OUT_MUX, OMUX_MAC)
+            vsh_ins.out_mux = OMUX_MAC
         elif ilu:
-            _vsh_set_field(vsh_ins, _VshField.FLD_OUT_MUX, OMUX_ILU)
+            vsh_ins.out_mux = OMUX_ILU
 
-        # TODO: Double check that the index maps to the right output register
-        _vsh_set_field(vsh_ins, _VshField.FLD_OUT_ADDRESS, dst_reg.index)
+        vsh_ins.out_address = dst_reg.index
         return
 
     if dst_reg.file == RegisterFile.PROGRAM_ENV_PARAM:
-        _vsh_set_field(vsh_ins, _VshField.FLD_OUT_O_MASK, _vsh_mask[dst_reg.write_mask])
+        vsh_ins.out_o_mask = _vsh_mask[dst_reg.write_mask]
         if mac:
-            _vsh_set_field(vsh_ins, _VshField.FLD_OUT_MUX, OMUX_MAC)
+            vsh_ins.out_mux = OMUX_MAC
         elif ilu:
-            _vsh_set_field(vsh_ins, _VshField.FLD_OUT_MUX, OMUX_ILU)
+            vsh_ins.out_mux = OMUX_ILU
 
-        _vsh_set_field(vsh_ins, _VshField.FLD_OUT_ORB, OUTPUT_C)
-        # TODO: the index needs adjustment?
-        _vsh_set_field(vsh_ins, _VshField.FLD_OUT_ADDRESS, dst_reg.index)
+        vsh_ins.out_orb = OUTPUT_C
+        vsh_ins.out_address = dst_reg.index
         return
 
     raise Exception("Unsupported destination target.")
 
 
-def _process_source(ins: Instruction, ilu: bool, mac: bool, vsh_ins: List[int]):
+def _process_source(
+    ins: Instruction, ilu: bool, mac: bool, vsh_ins: vsh_instruction.VshInstruction
+):
     if ilu and not mac:
         # ILU instructions only use input C. Swap src reg 0 and 2.
         assert not ins.src_reg[1]
@@ -743,27 +577,24 @@ def _process_source(ins: Instruction, ilu: bool, mac: bool, vsh_ins: List[int]):
         assert not reg.rel_addr
 
         if reg.file == RegisterFile.PROGRAM_TEMPORARY:
-            _vsh_set_field(vsh_ins, _mux_field[i], PARAM_R)
-            _vsh_set_field(vsh_ins, _reg_field[i], reg.index)
+            vsh_ins.set_mux_field(i, PARAM_R)
+            vsh_ins.set_reg_field(i, reg.index)
         elif reg.file == RegisterFile.PROGRAM_ENV_PARAM:
-            _vsh_set_field(vsh_ins, _mux_field[i], PARAM_C)
-            # TODO: the index needs ajustment?
-            _vsh_set_field(vsh_ins, _VshField.FLD_CONST, reg.index)
+            vsh_ins.set_mux_field(i, PARAM_C)
+            vsh_ins.const = reg.index
         elif reg.file == RegisterFile.PROGRAM_INPUT:
-            _vsh_set_field(vsh_ins, _mux_field[i], PARAM_V)
-            # TODO: Double check that the index maps to the right input register
-            _vsh_set_field(vsh_ins, _VshField.FLD_V, reg.index)
+            vsh_ins.set_mux_field(i, PARAM_V)
+            vsh_ins.v = reg.index
         else:
             raise Exception(f"Unsupported register type [{i}]{reg}")
 
         if reg.negate:
-            _vsh_set_field(vsh_ins, _neg_field[i], 1)
+            vsh_ins.set_negate_field(i, True)
 
-        for j in range(4):
-            _vsh_set_field(vsh_ins, _swizzle_field[i][j], _get_swizzle(reg.swizzle, j))
+        vsh_ins.set_swizzle_field(i, reg.swizzle)
 
 
-def _process_instruction(ins: Instruction, vsh_ins: List[int]):
+def _process_instruction(ins: Instruction, vsh_ins: vsh_instruction.VshInstruction):
     ilu, mac = _process_opcode(ins, vsh_ins)
     if ins.paired_ilu_dst_reg:
         _process_destination(ins.paired_ilu_dst_reg, True, False, vsh_ins)
@@ -774,42 +605,29 @@ def _process_instruction(ins: Instruction, vsh_ins: List[int]):
     _process_source(ins, ilu, mac, vsh_ins)
 
 
-def encode(instructions: List[Instruction], inline_final_flag=False) -> List[List[int]]:
+def encode_to_objects(
+    instructions: List[Instruction], inline_final_flag=False
+) -> List[vsh_instruction.VshInstruction]:
+    """Encodes the given Instructions into a list ov VshInstruction objects."""
     program = []
     for ins in instructions:
-        vsh_ins = [0, 0, 0, 0]
-        _vsh_set_field(vsh_ins, _VshField.FLD_ILU, ILU.ILU_NOP)
-        _vsh_set_field(vsh_ins, _VshField.FLD_MAC, MAC.MAC_NOP)
-        _vsh_set_field(vsh_ins, _VshField.FLD_A_SWZ_X, SWIZZLE_X)
-        _vsh_set_field(vsh_ins, _VshField.FLD_A_SWZ_Y, SWIZZLE_Y)
-        _vsh_set_field(vsh_ins, _VshField.FLD_A_SWZ_Z, SWIZZLE_Z)
-        _vsh_set_field(vsh_ins, _VshField.FLD_A_SWZ_W, SWIZZLE_W)
-        _vsh_set_field(vsh_ins, _VshField.FLD_A_MUX, PARAM_V)
-        _vsh_set_field(vsh_ins, _VshField.FLD_B_SWZ_X, SWIZZLE_X)
-        _vsh_set_field(vsh_ins, _VshField.FLD_B_SWZ_Y, SWIZZLE_Y)
-        _vsh_set_field(vsh_ins, _VshField.FLD_B_SWZ_Z, SWIZZLE_Z)
-        _vsh_set_field(vsh_ins, _VshField.FLD_B_SWZ_W, SWIZZLE_W)
-        _vsh_set_field(vsh_ins, _VshField.FLD_B_MUX, PARAM_V)
-        _vsh_set_field(vsh_ins, _VshField.FLD_C_SWZ_X, SWIZZLE_X)
-        _vsh_set_field(vsh_ins, _VshField.FLD_C_SWZ_Y, SWIZZLE_Y)
-        _vsh_set_field(vsh_ins, _VshField.FLD_C_SWZ_Z, SWIZZLE_Z)
-        _vsh_set_field(vsh_ins, _VshField.FLD_C_SWZ_W, SWIZZLE_W)
-        _vsh_set_field(vsh_ins, _VshField.FLD_C_MUX, PARAM_V)
-        _vsh_set_field(vsh_ins, _VshField.FLD_OUT_R, 7)
-        _vsh_set_field(vsh_ins, _VshField.FLD_OUT_ADDRESS, 0xFF)
-        _vsh_set_field(vsh_ins, _VshField.FLD_OUT_MUX, OMUX_MAC)
-        _vsh_set_field(vsh_ins, _VshField.FLD_OUT_ORB, OUTPUT_O)
-
+        vsh_ins = vsh_instruction.VshInstruction()
         _process_instruction(ins, vsh_ins)
 
         program.append(vsh_ins)
 
     if program:
         if inline_final_flag:
-            _vsh_set_field(program[-1], _VshField.FLD_FINAL, 1)
+            program[-1].final = True
         else:
-            vsh_ins = [0, 0, 0, 0]
-            _vsh_set_field(vsh_ins, _VshField.FLD_FINAL, 1)
+            vsh_ins = vsh_instruction.VshInstruction()
+            vsh_ins.set_empty_final()
             program.append(vsh_ins)
 
     return program
+
+
+def encode(instructions: List[Instruction], inline_final_flag=False) -> List[List[int]]:
+    """Encodes a list of instructions into a list of machine code quadruplets."""
+    program = encode_to_objects(instructions, inline_final_flag)
+    return [x.encode() for x in program]

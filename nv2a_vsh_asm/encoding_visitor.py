@@ -185,7 +185,7 @@ class EncodingVisitor(VshVisitor):
         mac_dst: vsh_encoder.DestinationRegister = a.dst_reg
         if (
             mac_dst.file == vsh_encoder.RegisterFile.PROGRAM_TEMPORARY
-            and mac_dst.index != 1
+            and mac_dst.index == 1
         ):
             print(
                 f"Warning: MAC instruction writing to R1 in MAC+ILU pairing at {ctx.start.line} will be ignored."
@@ -401,7 +401,8 @@ class EncodingVisitor(VshVisitor):
         return src_reg
 
     def visitP_input(self, ctx: VshParser.P_inputContext):
-        return self.visitChildren(ctx)[0]
+        contents = self.visitChildren(ctx)
+        return contents[0]
 
     def visitReg_const(self, ctx: VshParser.Reg_constContext):
         reg = ctx.children[0].symbol
@@ -519,15 +520,19 @@ class EncodingVisitor(VshVisitor):
         else:
             swizzle = f".{swizzle}"
 
+        prefix = ""
+        if register.negate:
+            prefix = "-"
+
         if register.file == vsh_encoder.RegisterFile.PROGRAM_TEMPORARY:
-            return f"r{register.index}{swizzle}"
+            return f"{prefix}r{register.index}{swizzle}"
 
         if register.file == vsh_encoder.RegisterFile.PROGRAM_ENV_PARAM:
-            return f"c{register.index}{swizzle}"
+            return f"{prefix}c{register.index}{swizzle}"
 
         if register.file == vsh_encoder.RegisterFile.PROGRAM_INPUT:
             name = _SOURCE_REGISTER_TO_NAME_MAP[register.index]
-            return f"{name}{swizzle}"
+            return f"{prefix}{name}{swizzle}"
 
         raise Exception("TODO: Implement destination register prettification.")
 

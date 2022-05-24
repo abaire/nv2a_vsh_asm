@@ -353,6 +353,28 @@ class VSHEncoderTestCase(unittest.TestCase):
 
         self._assert_vsh([0x00000000, 0x0062201B, 0x0C36146E, 0x9E600FF8], results[0])
 
+    def test_mad_temp_temp_const_const_neg(self):
+        program = []
+
+        # MAD R0.z, R0.z, c[117].z, -c[117].w
+        dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 0, WRITEMASK_Z)
+
+        src_a = SourceRegister(
+            RegisterFile.PROGRAM_TEMPORARY, 0, make_swizzle(SWIZZLE_Z)
+        )
+        src_b = SourceRegister(
+            RegisterFile.PROGRAM_ENV_PARAM, 117, make_swizzle(SWIZZLE_Z)
+        )
+        src_c = SourceRegister(
+            RegisterFile.PROGRAM_ENV_PARAM, 117, make_swizzle(SWIZZLE_W), 0, True
+        )
+        program.append(Instruction(Opcode.OPCODE_MAD, dst, src_a, src_b, src_c))
+
+        results = encode(program)
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x008EA0AA, 0x0554BFFD, 0x72000000], results[0])
+
     def test_mac_arl_ilu_mov(self):
         # ARL A0, R2
         # + MOV oD0.w, v4.z
