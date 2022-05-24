@@ -6,6 +6,7 @@ statement :
     NEWLINE
     | combined_operation
     | operation
+    | uniform_declaration
     ;
 
 combined_operation :
@@ -58,15 +59,33 @@ p_out_in : p_output SEP p_input ;
 p_out_in_in : p_output SEP p_input SEP p_input ;
 p_out_in_in_in : p_output SEP p_input SEP p_input SEP p_input ;
 
-reg_const : REG_Cx_BARE | REG_Cx_BRACKETED | REG_Cx_RELATIVE_A_FIRST | REG_Cx_RELATIVE_A_SECOND ;
+reg_const :
+    REG_Cx_BARE
+    | REG_Cx_BRACKETED
+    | REG_Cx_RELATIVE_A_FIRST
+    | REG_Cx_RELATIVE_A_SECOND
+    ;
+
+uniform_const :
+    UNIFORM_IDENTIFIER ('[' WHITESPACE* INTEGER WHITESPACE* ']')?
+    ;
 
 // TODO: Support writing to A0 (ARL instruction only)
 p_output : (REG_Rx | REG_OUTPUT) DESTINATION_MASK? ;
 // Input swizzling is more permissive than destination masks, but the matching is
 // overlapping so both tokens are accepted.
-p_input_raw : (REG_Rx | REG_INPUT | reg_const) (SWIZZLE_MASK | DESTINATION_MASK)? ;
+p_input_raw : (REG_Rx | REG_INPUT | reg_const | uniform_const) (SWIZZLE_MASK | DESTINATION_MASK)? ;
 p_input_negated : NEGATE p_input_raw ;
 p_input : p_input_raw | p_input_negated ;
+
+uniform_type :
+    TYPE_MATRIX4
+    | TYPE_VECTOR
+    ;
+
+uniform_declaration :
+    UNIFORM_IDENTIFIER uniform_type INTEGER
+    ;
 
 NEGATE : '-' ;
 INTEGER : [0-9]+ ;
@@ -194,6 +213,14 @@ OP_RCP : 'RCP' | 'rcp' ;
 OP_RSQ : 'RSQ' | 'rsq' ;
 
 OP_RCC : 'RCC' | 'rcc' ;
+
+UNIFORM_DEFINITION : '%' ('uniform' | 'UNIFORM') ;
+TYPE_VECTOR : 'vector' | 'VECTOR' ;
+TYPE_MATRIX4 : ('matrix' | 'MATRIX') '4' ;
+
+// Macro identfiers must be at least 2 characters and start with a #
+// followed by any number of letters, numbers, or underscores.
+UNIFORM_IDENTIFIER : '#'[a-zA-Z0-9_]+ ;
 
 COMBINE : '+' ;
 NEWLINE : ('\r\n' | '\n' | '\r')+ ;

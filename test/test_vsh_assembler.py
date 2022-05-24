@@ -110,7 +110,9 @@ class VSHAssemblerTestCase(unittest.TestCase):
         results = asm.output
         self._assert_final_marker(results)
         self.assertEqual(len(results), 2)
-        self._assert_vsh([0x00000000, 0x008EA0AA, 0x0554BFFD, 0x72000000], results[0])
+        self._assert_vsh([0x00000000, 0x008EA0AA, 0x05541FFC, 0x32000FF8], results[0])
+        # xemu seems to decompile this incorrectly
+        # self._assert_vsh([0x00000000, 0x008EA0AA, 0x0554BFFD, 0x72000000], results[0])
 
     def test_negated_bracketed_const_swizzled(self):
         asm = Assembler("MAD R0.z, R0.z, c[117].z, -c[117].w")
@@ -118,7 +120,9 @@ class VSHAssemblerTestCase(unittest.TestCase):
         results = asm.output
         self._assert_final_marker(results)
         self.assertEqual(len(results), 2)
-        self._assert_vsh([0x00000000, 0x008EA0AA, 0x0554BFFD, 0x72000000], results[0])
+        self._assert_vsh([0x00000000, 0x008EA0AA, 0x05541FFC, 0x32000FF8], results[0])
+        # xemu seems to decompile this incorrectly
+        # self._assert_vsh([0x00000000, 0x008EA0AA, 0x0554BFFD, 0x72000000], results[0])
 
     # FLD_OUT_R is set to a non-default value despite nothing being written to a temp register
     # + 	FLD_OUT_R 0x9 (1001) != actual 0x7 (0111)
@@ -162,6 +166,38 @@ class VSHAssemblerTestCase(unittest.TestCase):
     #     self.assertEqual(len(results), 2)
     #     self._assert_vsh([0x00000000, 0x00478C00, 0x0836186C, 0x2F300FFA], results[0])
 
+    def test_uniform_vector_bare(self):
+        asm = Assembler("#test_vector vector 15\n" "DPH oT0.x, v4, #test_vector")
+        asm.assemble()
+        results = asm.output
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x00C1E81B, 0x0836186C, 0x20708848], results[0])
+
+    def test_uniform_vector_bracketed(self):
+        asm = Assembler("#test_vector vector 15\n" "DPH oT0.x, v4, #test_vector[0]")
+        asm.assemble()
+        results = asm.output
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x00C1E81B, 0x0836186C, 0x20708848], results[0])
+
+    def test_uniform_matrix4_bare(self):
+        asm = Assembler("#test_matrix matrix4 15\nDPH oT0.x, v4, #test_matrix")
+        asm.assemble()
+        results = asm.output
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x00C1E81B, 0x0836186C, 0x20708848], results[0])
+
+    def test_uniform_matrix4_with_offset(self):
+        asm = Assembler("#test_matrix matrix4 11\nDPH oT0.x, v4, #test_matrix[ 1 ]")
+        asm.assemble()
+        results = asm.output
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x00C1E81B, 0x0836186C, 0x20708848], results[0])
+
     def test_simple(self):
         all_input = os.path.join(_RESOURCE_PATH, "simple.vsh")
         with open(all_input) as infile:
@@ -195,7 +231,8 @@ class VSHAssemblerTestCase(unittest.TestCase):
 
     def _assert_vsh(self, expected: List[int], actual: List[int]):
         diff = vsh_encoder.vsh_diff_instructions(expected, actual)
-        self.assertEqual("", diff)
+        if diff:
+            raise self.failureException(diff)
 
 
 if __name__ == "__main__":

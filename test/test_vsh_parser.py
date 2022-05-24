@@ -107,6 +107,14 @@ class VSHParserTestCase(unittest.TestCase):
         self._parse("add r0, -v0, c1")
         self.assertTrue(self._error_listener.ok)
 
+    def test_uniform_matrix4(self):
+        self._parse("#test matrix4 13")
+        self.assertTrue(self._error_listener.ok)
+
+    def test_uniform_vector(self):
+        self._parse("#test vector 12")
+        self.assertTrue(self._error_listener.ok)
+
 
 if __name__ == "__main__":
     unittest.main()
