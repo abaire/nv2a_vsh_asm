@@ -150,7 +150,67 @@ class EncodingVisitor(VshVisitor):
 
     def visitCombined_operation(self, ctx: VshParser.Combined_operationContext):
         operations = self.visitChildren(ctx)
-        raise Exception("TODO: Implement me.")
+        assert len(operations) == 2
+
+        a, a_src = operations[0]
+        b, b_src = operations[1]
+        a_ilu = a.opcode.is_ilu()
+        b_ilu = b.opcode.is_ilu()
+
+        # Detect ILU mov instruction pairing (a mov + a MAC instruction implies ILU mov)
+        if not (a_ilu or b_ilu):
+            if a.opcode == vsh_encoder.Opcode.OPCODE_MOV:
+                a_ilu = True
+            if b.opcode == vsh_encoder.Opcode.OPCODE_MOV:
+                b_ilu = True
+
+        if a_ilu and b_ilu:
+            raise Exception(
+                f"Invalid instruction pairing (both ILU) at {ctx.start.line}"
+            )
+        if not (a_ilu or b_ilu):
+            raise Exception(
+                f"Invalid instruction pairing (both MAC) at {ctx.start.line}"
+            )
+
+        if a_ilu:
+            temp = a
+            a = b
+            b = temp
+            temp = a_src
+            a_src = b_src
+            b_src = temp
+
+        ilu_dst: vsh_encoder.DestinationRegister = b.dst_reg
+        if (
+            ilu_dst.file != vsh_encoder.RegisterFile.PROGRAM_TEMPORARY
+            or ilu_dst.index != 1
+        ):
+            raise Exception(
+                f"Invalid paired ILU instruction (may only write to R1, writes to {ilu_dst.pretty_string()}) at {ctx.start.line}"
+            )
+
+        mac_dst: vsh_encoder.DestinationRegister = a.dst_reg
+        if (
+            mac_dst.file == vsh_encoder.RegisterFile.PROGRAM_TEMPORARY
+            and mac_dst.index != 1
+        ):
+            print(
+                f"Warning: MAC instruction writing to R1 in MAC+ILU pairing at {ctx.start.line} will be ignored."
+            )
+
+        return (
+            vsh_encoder.Instruction(
+                a.opcode,
+                a.dst_reg,
+                a.src_reg[0],
+                a.src_reg[1],
+                b.src_reg[0],
+                b.opcode,
+                ilu_dst.write_mask,
+            ),
+            f"{a_src} + {b_src}",
+        )
 
     def visitOp_add(self, ctx: VshParser.Op_addContext):
         operands = self.visitChildren(ctx)

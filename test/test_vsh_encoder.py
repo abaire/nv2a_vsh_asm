@@ -169,17 +169,18 @@ class VSHEncoderTestCase(unittest.TestCase):
         program = []
 
         # MOV(oD0,xyzw, v3);
-        # RCP(R1,w, R1.w);
+        # + RCP(R1,w, R1.w);
         dst = DestinationRegister(
             RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_DIFFUSE, WRITEMASK_XYZW
         )
+        ilu_dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 1, WRITEMASK_W)
         src_a = SourceRegister(RegisterFile.PROGRAM_INPUT, InputRegisters.V3)
         src_c = SourceRegister(
             RegisterFile.PROGRAM_TEMPORARY, 1, make_swizzle(SWIZZLE_W)
         )
 
         ins = Instruction(
-            Opcode.OPCODE_MOV, dst, src_a, None, src_c, Opcode.OPCODE_RCP, WRITEMASK_W
+            Opcode.OPCODE_MOV, dst, src_a, None, src_c, Opcode.OPCODE_RCP, ilu_dst
         )
 
         program.append(ins)
@@ -195,13 +196,14 @@ class VSHEncoderTestCase(unittest.TestCase):
         # MOV(oT1,xyzw, v3);
         # RCC(R1,x, R12.w);
         dst = DestinationRegister(RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_TEX1)
+        ilu_dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 1, WRITEMASK_X)
         src_a = SourceRegister(RegisterFile.PROGRAM_INPUT, InputRegisters.V3)
         src_c = SourceRegister(
             RegisterFile.PROGRAM_TEMPORARY, 12, make_swizzle(SWIZZLE_W)
         )
 
         ins = Instruction(
-            Opcode.OPCODE_MOV, dst, src_a, None, src_c, Opcode.OPCODE_RCC, WRITEMASK_X
+            Opcode.OPCODE_MOV, dst, src_a, None, src_c, Opcode.OPCODE_RCC, ilu_dst
         )
 
         program.append(ins)
@@ -219,6 +221,7 @@ class VSHEncoderTestCase(unittest.TestCase):
         dst = DestinationRegister(
             RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_DIFFUSE
         )
+        ilu_dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 1, WRITEMASK_X)
         src_a = SourceRegister(RegisterFile.PROGRAM_INPUT, InputRegisters.V1)
         src_b = SourceRegister(RegisterFile.PROGRAM_ENV_PARAM, 188)
         src_c = SourceRegister(
@@ -226,7 +229,7 @@ class VSHEncoderTestCase(unittest.TestCase):
         )
 
         ins = Instruction(
-            Opcode.OPCODE_MUL, dst, src_a, src_b, src_c, Opcode.OPCODE_RCC, WRITEMASK_X
+            Opcode.OPCODE_MUL, dst, src_a, src_b, src_c, Opcode.OPCODE_RCC, ilu_dst
         )
 
         program.append(ins)
@@ -236,12 +239,149 @@ class VSHEncoderTestCase(unittest.TestCase):
         self.assertEqual(len(results), 2)
         self._assert_vsh([0x00000000, 0x0657821B, 0x08361BFF, 0x1018F818], results[0])
 
+    def test_mac_mul_ilu_mov(self):
+        program = []
+
+        # MUL R2.xyzw, R1, c[0]
+        # + MOV oD1.xyzw, v4
+        dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 2)
+        ilu_dst = DestinationRegister(
+            RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_SPECULAR
+        )
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 1)
+        src_b = SourceRegister(RegisterFile.PROGRAM_ENV_PARAM, 0)
+        src_c = SourceRegister(RegisterFile.PROGRAM_INPUT, InputRegisters.V4)
+
+        ins = Instruction(
+            Opcode.OPCODE_MUL, dst, src_a, src_b, src_c, Opcode.OPCODE_MOV, ilu_dst
+        )
+
+        program.append(ins)
+
+        results = encode(program)
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x0240081B, 0x1436186C, 0x2F20F824], results[0])
+
+        # AssertionError: Instructions differ.
+        # 	0x00000000 0x0240081b 0x1436186c 0x2f20f824
+        # 	0x00000000 0x0240081b 0x1436186c 0x2f2f0ff8
+        #
+        # 	FLD_OUT_ILU_MASK 0x0 (0000) != actual 0xf (1111)
+        # 	FLD_OUT_O_MASK 0xf (1111) != actual 0x0 (0000)
+        # 	FLD_OUT_ADDRESS 0x4 (00000100) != actual 0xff (11111111)
+        # 	FLD_OUT_MUX 0x1 (1) != actual 0x0 (0)
+
+    def test_mac_mov_ilu_mov(self):
+        program = []
+
+        # MOV R5.xyz, R4
+        # + MOV oT0.xy, v1
+        dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 5, WRITEMASK_XYZ)
+        ilu_dst = DestinationRegister(
+            RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_TEX0, WRITEMASK_XY
+        )
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 4)
+        src_b = None
+        src_c = SourceRegister(RegisterFile.PROGRAM_INPUT, InputRegisters.V1)
+
+        ins = Instruction(
+            Opcode.OPCODE_MOV, dst, src_a, src_b, src_c, Opcode.OPCODE_MOV, ilu_dst
+        )
+
+        program.append(ins)
+
+        results = encode(program)
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x0220021B, 0x4436106C, 0x2E50C84C], results[0])
+
+        # 	0x00000000 0x0220021b 0x4436106c 0x2e50c84c
+        # 	0x00000000 0x0220021b 0x4436106c 0x2e5c0ff8
+        #
+        # 	FLD_OUT_ILU_MASK 0x0 (0000) != actual 0xc (1100)
+        # 	FLD_OUT_O_MASK 0xc (1100) != actual 0x0 (0000)
+        # 	FLD_OUT_ADDRESS 0x9 (00001001) != actual 0xff (11111111)
+        # 	FLD_OUT_MUX 0x1 (1) != actual 0x0 (0)
+
+    def test_mac_mov_temp_const_ilu_mov_out_in(self):
+        program = []
+
+        # MOV R8.xyz, c27
+        # + MOV oD0.w, v4.z
+        dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 8, WRITEMASK_XYZ)
+        ilu_dst = DestinationRegister(
+            RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_DIFFUSE, WRITEMASK_W
+        )
+        src_a = SourceRegister(RegisterFile.PROGRAM_ENV_PARAM, 27)
+        src_b = None
+        src_c = SourceRegister(
+            RegisterFile.PROGRAM_INPUT, InputRegisters.V4, make_swizzle(SWIZZLE_Z)
+        )
+
+        ins = Instruction(
+            Opcode.OPCODE_MOV, dst, src_a, src_b, src_c, Opcode.OPCODE_MOV, ilu_dst
+        )
+
+        program.append(ins)
+
+        results = encode(program)
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x0223681B, 0x0C3612A8, 0x2E80181C], results[0])
+
+        # AssertionError: Instructions differ.
+        # 	0x00000000 0x0223681b 0x0c3612a8 0x2e80181c
+        # 	0x00000000 0x0223681b 0x0c3612a8 0x2e810ff8
+        #
+        # 	FLD_OUT_ILU_MASK 0x0 (0000) != actual 0x1 (0001)
+        # 	FLD_OUT_O_MASK 0x1 (0001) != actual 0x0 (0000)
+        # 	FLD_OUT_ADDRESS 0x3 (00000011) != actual 0xff (11111111)
+        # 	FLD_OUT_MUX 0x1 (1) != actual 0x0 (0)
+
+    def test_mac_dp3_ilu_mov(self):
+        program = []
+
+        # DP3 R7,w, R6, R6
+        # + MOV oT3.xyz, R5
+        dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 7, WRITEMASK_W)
+        ilu_dst = DestinationRegister(
+            RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_TEX3, WRITEMASK_XYZ
+        )
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 6)
+        src_b = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 6)
+        src_c = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 5)
+
+        ins = Instruction(
+            Opcode.OPCODE_DP3, dst, src_a, src_b, src_c, Opcode.OPCODE_MOV, ilu_dst
+        )
+
+        program.append(ins)
+
+        results = encode(program)
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x02A0001B, 0x6436C86D, 0x5170E864], results[0])
+
+    def test_mac_arl_ilu_mov(self):
+        # ARL A0, R2
+        # + MOV oD0.w, v4.z
+        # // [0x00000000, 0x03A0081B, 0x243612A8, 0x2070181C]
+        pass
+
+    def test_mac_mul_neg_ilu_mov(self):
+        # MUL R7.w, -R6.x, c14.z
+        # + MOV oT3.xyz, R5
+        # // [0x00000000, 0x0241C100, 0x6554186D, 0x5170E864]
+        pass
+
     def _assert_final_marker(self, results):
         self.assertEqual([0, 0, 0, 1], results[-1])
 
     def _assert_vsh(self, expected: List[int], actual: List[int]):
         diff = vsh_diff_instructions(expected, actual)
-        self.assertEqual("", diff)
+        if diff:
+            raise self.failureException(diff)
 
 
 if __name__ == "__main__":

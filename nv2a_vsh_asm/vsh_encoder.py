@@ -332,7 +332,10 @@ class DestinationRegister:
         self.rel_addr = rel_addr
 
     def __repr__(self):
-        return f"{type(self).__name__}({self.file} {self.index} {_WRITEMASK_NAME[self.write_mask]})"
+        return f"{type(self).__name__}({self.pretty_string()})"
+
+    def pretty_string(self) -> str:
+        return f"{self.file} {self.index}{_WRITEMASK_NAME[self.write_mask]}"
 
 
 class Instruction:
@@ -346,18 +349,21 @@ class Instruction:
         src_b: Optional[SourceRegister] = None,
         src_c: Optional[SourceRegister] = None,
         paired_ilu_opcode: Optional[Opcode] = None,
-        paired_ilu_writemask: int = WRITEMASK_XYZW,
+        paired_ilu_dst_reg: Optional[DestinationRegister] = None,
     ):
         self.opcode = opcode
         self.dst_reg = dst_reg
         self.src_reg = [src_a, src_b, src_c]
         self.paired_ilu_opcode = paired_ilu_opcode
-        self.paired_ilu_writemask = paired_ilu_writemask
+        self.paired_ilu_dst_reg = paired_ilu_dst_reg
 
     def __repr__(self):
         paired_info = ""
         if self.paired_ilu_opcode:
-            paired_info = f" + {self.paired_ilu_opcode}=>r1{_WRITEMASK_NAME[self.paired_ilu_writemask]}"
+            assert self.paired_ilu_dst_reg
+            paired_info = (
+                f" + {self.paired_ilu_opcode}=>{repr(self.paired_ilu_dst_reg)}"
+            )
 
         params = [repr(p) for p in self.src_reg if p]
         return (
@@ -676,47 +682,37 @@ def _process_opcode(ins: Instruction, out: List[int]) -> Tuple[bool, bool]:
     return ilu, mac
 
 
-def _process_destination(ins: Instruction, ilu: bool, mac: bool, vsh_ins: List[int]):
-    if not ins.dst_reg:
+def _process_destination(
+    dst_reg: Optional[DestinationRegister], ilu: bool, mac: bool, vsh_ins: List[int]
+):
+    if not dst_reg:
         return
 
-    # Flag the implicit R1 output from the ILU pairing.
-    if mac and ilu:
-        assert ins.paired_ilu_opcode
-        _vsh_set_field(vsh_ins, _VshField.FLD_OUT_R, 1)
-        _vsh_set_field(
-            vsh_ins, _VshField.FLD_OUT_ILU_MASK, _vsh_mask[ins.paired_ilu_writemask]
-        )
-
-    if ins.dst_reg.file == RegisterFile.PROGRAM_TEMPORARY:
-        _vsh_set_field(vsh_ins, _VshField.FLD_OUT_R, ins.dst_reg.index)
+    if dst_reg.file == RegisterFile.PROGRAM_TEMPORARY:
+        _vsh_set_field(vsh_ins, _VshField.FLD_OUT_R, dst_reg.index)
         if mac:
             _vsh_set_field(
-                vsh_ins, _VshField.FLD_OUT_MAC_MASK, _vsh_mask[ins.dst_reg.write_mask]
+                vsh_ins, _VshField.FLD_OUT_MAC_MASK, _vsh_mask[dst_reg.write_mask]
             )
         elif ilu:
             _vsh_set_field(
-                vsh_ins, _VshField.FLD_OUT_ILU_MASK, _vsh_mask[ins.dst_reg.write_mask]
+                vsh_ins, _VshField.FLD_OUT_ILU_MASK, _vsh_mask[dst_reg.write_mask]
             )
         return
 
-    if ins.dst_reg.file == RegisterFile.PROGRAM_OUTPUT:
-        _vsh_set_field(
-            vsh_ins, _VshField.FLD_OUT_O_MASK, _vsh_mask[ins.dst_reg.write_mask]
-        )
+    if dst_reg.file == RegisterFile.PROGRAM_OUTPUT:
+        _vsh_set_field(vsh_ins, _VshField.FLD_OUT_O_MASK, _vsh_mask[dst_reg.write_mask])
         if mac:
             _vsh_set_field(vsh_ins, _VshField.FLD_OUT_MUX, OMUX_MAC)
         elif ilu:
             _vsh_set_field(vsh_ins, _VshField.FLD_OUT_MUX, OMUX_ILU)
 
         # TODO: Double check that the index maps to the right output register
-        _vsh_set_field(vsh_ins, _VshField.FLD_OUT_ADDRESS, ins.dst_reg.index)
+        _vsh_set_field(vsh_ins, _VshField.FLD_OUT_ADDRESS, dst_reg.index)
         return
 
-    if ins.dst_reg.file == RegisterFile.PROGRAM_ENV_PARAM:
-        _vsh_set_field(
-            vsh_ins, _VshField.FLD_OUT_O_MASK, _vsh_mask[ins.dst_reg.write_mask]
-        )
+    if dst_reg.file == RegisterFile.PROGRAM_ENV_PARAM:
+        _vsh_set_field(vsh_ins, _VshField.FLD_OUT_O_MASK, _vsh_mask[dst_reg.write_mask])
         if mac:
             _vsh_set_field(vsh_ins, _VshField.FLD_OUT_MUX, OMUX_MAC)
         elif ilu:
@@ -724,7 +720,7 @@ def _process_destination(ins: Instruction, ilu: bool, mac: bool, vsh_ins: List[i
 
         _vsh_set_field(vsh_ins, _VshField.FLD_OUT_ORB, OUTPUT_C)
         # TODO: the index needs adjustment?
-        _vsh_set_field(vsh_ins, _VshField.FLD_OUT_ADDRESS, ins.dst_reg.index)
+        _vsh_set_field(vsh_ins, _VshField.FLD_OUT_ADDRESS, dst_reg.index)
         return
 
     raise Exception("Unsupported destination target.")
@@ -774,7 +770,12 @@ def _process_source(ins: Instruction, ilu: bool, mac: bool, vsh_ins: List[int]):
 
 def _process_instruction(ins: Instruction, vsh_ins: List[int]):
     ilu, mac = _process_opcode(ins, vsh_ins)
-    _process_destination(ins, ilu, mac, vsh_ins)
+    if ins.paired_ilu_dst_reg:
+        _process_destination(ins.paired_ilu_dst_reg, True, False, vsh_ins)
+        _process_destination(ins.dst_reg, False, True, vsh_ins)
+    else:
+        _process_destination(ins.dst_reg, ilu, mac, vsh_ins)
+
     _process_source(ins, ilu, mac, vsh_ins)
 
 
