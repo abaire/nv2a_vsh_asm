@@ -60,25 +60,22 @@ class VSHEncoderTestCase(unittest.TestCase):
         self.assertEqual(len(results), 2)
         self._assert_vsh([0x00000000, 0x00200015, 0x0436106C, 0x2070C800], results[0])
 
-    # Something about this test seems wrong, the swizzle behavior does not match and
-    # the FLD_OUT_ORB setting doesn't match expectations for a shader that does not
-    # write to a constant output register.
-    # def test_rcp_temp_temp_swizzled(self):
-    #     program = []
-    #
-    #     # RCP(R1,x, R0.w);
-    #     dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 1, WRITEMASK_X)
-    #
-    #     # TODO: Investigate why this is not wwww
-    #     # The vp20 compiler is emitting 0's instead of repeating the last component.
-    #     src = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 0, make_swizzle(SWIZZLE_W, 0, 0, 0))
-    #     program.append(Instruction(Opcode.OPCODE_RCP, dst, src))
-    #
-    #     results = encode(program)
-    #     self._assert_final_marker(results)
-    #     self.assertEqual(len(results), 2)
-    #
-    #     self._assert_vsh([0x00000000, 0x0400001B, 0x08361300, 0x101807F8], results[0])
+    def test_rcp_out_in_swizzled(self):
+        program = []
+        # RCP oFog.xyzw, v0.w
+        dst = DestinationRegister(
+            RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_FOG_COORD
+        )
+        src = SourceRegister(
+            RegisterFile.PROGRAM_INPUT, InputRegisters.V0, make_swizzle(SWIZZLE_W)
+        )
+        program.append(Instruction(Opcode.OPCODE_RCP, dst, src))
+
+        results = encode(program)
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+
+        self._assert_vsh([0x00000000, 0x0400001B, 0x083613FC, 0x2070F82C], results[0])
 
     # ORB mismatch, expect 0, got 1
     # def test_min_temp_temp_const_inverse_swizzle(self):
