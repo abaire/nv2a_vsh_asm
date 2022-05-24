@@ -6,6 +6,7 @@ from build.grammar.VshVisitor import VshVisitor
 
 from . import vsh_encoder
 
+
 class _Visitor(VshVisitor):
     def visitOp_add(self, ctx: VshParser.Op_addContext):
         return super().visitOp_add(ctx)
@@ -29,7 +30,9 @@ class Assembler:
         self._output = visitor.visit(parser.program())
         print(f"OUTPUT: {self._output}")
 
-        dst = vsh_encoder.DestinationRegister(vsh_encoder.gl_register_file.PROGRAM_OUTPUT)
+        dst = vsh_encoder.DestinationRegister(
+            vsh_encoder.gl_register_file.PROGRAM_OUTPUT
+        )
         ins = vsh_encoder.Instruction(vsh_encoder.prog_opcode.OPCODE_MOV, dst)
         vsh_encoder.encode([ins])
 

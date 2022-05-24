@@ -13,10 +13,10 @@ class VSHEncoderTestCase(unittest.TestCase):
         program = []
 
         # MOV oD0.xyzw, v3
-        dst = DestinationRegister(gl_register_file.PROGRAM_OUTPUT,
-                                  OutputRegisters.REG_DIFFUSE)
-        src = SourceRegister(gl_register_file.PROGRAM_INPUT,
-                             InputRegisters.REG_DIFFUSE)
+        dst = DestinationRegister(
+            gl_register_file.PROGRAM_OUTPUT, OutputRegisters.REG_DIFFUSE
+        )
+        src = SourceRegister(gl_register_file.PROGRAM_INPUT, InputRegisters.REG_DIFFUSE)
         program.append(Instruction(prog_opcode.OPCODE_MOV, dst, src))
 
         results = encode(program)
@@ -28,10 +28,14 @@ class VSHEncoderTestCase(unittest.TestCase):
         program = []
 
         # MOV(oT0.xy, v0.zw);
-        dst = DestinationRegister(gl_register_file.PROGRAM_OUTPUT,
-                                  OutputRegisters.REG_TEX0, WRITEMASK_XY)
-        src = SourceRegister(gl_register_file.PROGRAM_INPUT,
-                             InputRegisters.V0, MAKE_SWIZZLE4(SWIZZLE_Z, SWIZZLE_W))
+        dst = DestinationRegister(
+            gl_register_file.PROGRAM_OUTPUT, OutputRegisters.REG_TEX0, WRITEMASK_XY
+        )
+        src = SourceRegister(
+            gl_register_file.PROGRAM_INPUT,
+            InputRegisters.V0,
+            MAKE_SWIZZLE4(SWIZZLE_Z, SWIZZLE_W),
+        )
         program.append(Instruction(prog_opcode.OPCODE_MOV, dst, src))
 
         results = encode(program)
@@ -43,10 +47,12 @@ class VSHEncoderTestCase(unittest.TestCase):
         program = []
 
         # MOV oPos.xy, R0.xy
-        dst = DestinationRegister(gl_register_file.PROGRAM_OUTPUT,
-                                  OutputRegisters.REG_POS, WRITEMASK_XY)
-        src = SourceRegister(gl_register_file.PROGRAM_TEMPORARY,
-                             0, MAKE_SWIZZLE4(SWIZZLE_X, SWIZZLE_Y))
+        dst = DestinationRegister(
+            gl_register_file.PROGRAM_OUTPUT, OutputRegisters.REG_POS, WRITEMASK_XY
+        )
+        src = SourceRegister(
+            gl_register_file.PROGRAM_TEMPORARY, 0, MAKE_SWIZZLE4(SWIZZLE_X, SWIZZLE_Y)
+        )
         program.append(Instruction(prog_opcode.OPCODE_MOV, dst, src))
 
         results = encode(program)
@@ -74,7 +80,6 @@ class VSHEncoderTestCase(unittest.TestCase):
     #
     #     self._assert_vsh([0x00000000, 0x0400001B, 0x08361300, 0x101807F8], results[0])
 
-
     # ORB mismatch, expect 0, got 1
     # def test_min_temp_temp_const_inverse_swizzle(self):
     #     program = []
@@ -90,16 +95,17 @@ class VSHEncoderTestCase(unittest.TestCase):
     #     self.assertEqual(len(results), 2)
     #     self._assert_vsh([0x00000000, 0x012D8000, 0x05C8186C, 0x2F0007F8], results[0])
 
-
     def test_mul_temp_in_const_swizzled(self):
         program = []
 
         # MUL R0.x, v0.x, c0.x // Ignore rest of line
         dst = DestinationRegister(gl_register_file.PROGRAM_TEMPORARY, 0, WRITEMASK_X)
-        src_a = SourceRegister(gl_register_file.PROGRAM_INPUT,
-                               InputRegisters.V0, MAKE_SWIZZLE4(SWIZZLE_X))
-        src_b = SourceRegister(gl_register_file.PROGRAM_ENV_PARAM,
-                               0, MAKE_SWIZZLE4(SWIZZLE_X))
+        src_a = SourceRegister(
+            gl_register_file.PROGRAM_INPUT, InputRegisters.V0, MAKE_SWIZZLE4(SWIZZLE_X)
+        )
+        src_b = SourceRegister(
+            gl_register_file.PROGRAM_ENV_PARAM, 0, MAKE_SWIZZLE4(SWIZZLE_X)
+        )
         program.append(Instruction(prog_opcode.OPCODE_MUL, dst, src_a, src_b))
 
         results = encode(program)
@@ -112,8 +118,12 @@ class VSHEncoderTestCase(unittest.TestCase):
 
         # ADD R0.y, R0.y, c1.w
         dst = DestinationRegister(gl_register_file.PROGRAM_TEMPORARY, 0, WRITEMASK_Y)
-        src_a = SourceRegister(gl_register_file.PROGRAM_TEMPORARY, 0, MAKE_SWIZZLE4(SWIZZLE_Y))
-        src_b = SourceRegister(gl_register_file.PROGRAM_ENV_PARAM, 1, MAKE_SWIZZLE4(SWIZZLE_W))
+        src_a = SourceRegister(
+            gl_register_file.PROGRAM_TEMPORARY, 0, MAKE_SWIZZLE4(SWIZZLE_Y)
+        )
+        src_b = SourceRegister(
+            gl_register_file.PROGRAM_ENV_PARAM, 1, MAKE_SWIZZLE4(SWIZZLE_W)
+        )
         program.append(Instruction(prog_opcode.OPCODE_ADD, dst, src_a, src_b))
 
         results = encode(program)
@@ -121,12 +131,13 @@ class VSHEncoderTestCase(unittest.TestCase):
         self.assertEqual(len(results), 2)
         self._assert_vsh([0x00000000, 0x006C2055, 0x043613FC, 0x34000FF8], results[0])
 
-
     def test_dp4_out_in_const(self):
         program = []
 
         # DP4(oPos,x, v0, c[96]);
-        dst = DestinationRegister(gl_register_file.PROGRAM_OUTPUT, OutputRegisters.REG_POS, WRITEMASK_X)
+        dst = DestinationRegister(
+            gl_register_file.PROGRAM_OUTPUT, OutputRegisters.REG_POS, WRITEMASK_X
+        )
         src_a = SourceRegister(gl_register_file.PROGRAM_INPUT, InputRegisters.V0)
         src_b = SourceRegister(gl_register_file.PROGRAM_ENV_PARAM, 0)
         program.append(Instruction(prog_opcode.OPCODE_DP4, dst, src_a, src_b))
@@ -141,9 +152,15 @@ class VSHEncoderTestCase(unittest.TestCase):
 
         # MAD(R0,x, v0.y, c[96].y, R0.x);
         dst = DestinationRegister(gl_register_file.PROGRAM_TEMPORARY, 0, WRITEMASK_X)
-        src_a = SourceRegister(gl_register_file.PROGRAM_INPUT, InputRegisters.V0, MAKE_SWIZZLE4(SWIZZLE_Y))
-        src_b = SourceRegister(gl_register_file.PROGRAM_ENV_PARAM, 96 - 96, MAKE_SWIZZLE4(SWIZZLE_Y))
-        src_c = SourceRegister(gl_register_file.PROGRAM_TEMPORARY, 0, MAKE_SWIZZLE4(SWIZZLE_X))
+        src_a = SourceRegister(
+            gl_register_file.PROGRAM_INPUT, InputRegisters.V0, MAKE_SWIZZLE4(SWIZZLE_Y)
+        )
+        src_b = SourceRegister(
+            gl_register_file.PROGRAM_ENV_PARAM, 96 - 96, MAKE_SWIZZLE4(SWIZZLE_Y)
+        )
+        src_c = SourceRegister(
+            gl_register_file.PROGRAM_TEMPORARY, 0, MAKE_SWIZZLE4(SWIZZLE_X)
+        )
         program.append(Instruction(prog_opcode.OPCODE_MAD, dst, src_a, src_b, src_c))
 
         results = encode(program)
@@ -151,25 +168,24 @@ class VSHEncoderTestCase(unittest.TestCase):
         self.assertEqual(len(results), 2)
         self._assert_vsh([0x00000000, 0x008C0055, 0x08AA1800, 0x18000FF8], results[0])
 
-    def test_mac_mov_ilu_rcp(self):
-        program = []
-
-        # MOV(oD0,xyzw, v3);
-        # RCP(R1,w, R1.w);
-        dst = DestinationRegister(gl_register_file.PROGRAM_OUTPUT, OutputRegisters.REG_DIFFUSE, WRITEMASK_XYZW)
-        src_a = SourceRegister(gl_register_file.PROGRAM_INPUT, InputRegisters.V3)
-
-        ins = Instruction(prog_opcode.OPCODE_MOV, dst, src_a)
-        dst = DestinationRegister(gl_register_file.PROGRAM_TEMPORARY, 1, WRITEMASK_W)
-        src_a = SourceRegister(gl_register_file.PROGRAM_TEMPORARY, 1, MAKE_SWIZZLE4(SWIZZLE_W))
-
-        program.append(ins)
-
-        results = encode(program)
-        self._assert_final_marker(results)
-        self.assertEqual(len(results), 2)
-        self._assert_vsh([0x00000000, 0x0420061B, 0x083613FC, 0x5011F818], results[0])
-
+    # def test_mac_mov_ilu_rcp(self):
+    #     program = []
+    #
+    #     # MOV(oD0,xyzw, v3);
+    #     # RCP(R1,w, R1.w);
+    #     dst = DestinationRegister(gl_register_file.PROGRAM_OUTPUT, OutputRegisters.REG_DIFFUSE, WRITEMASK_XYZW)
+    #     src_a = SourceRegister(gl_register_file.PROGRAM_INPUT, InputRegisters.V3)
+    #
+    #     ins = Instruction(prog_opcode.OPCODE_MOV, dst, src_a)
+    #     dst = DestinationRegister(gl_register_file.PROGRAM_TEMPORARY, 1, WRITEMASK_W)
+    #     src_a = SourceRegister(gl_register_file.PROGRAM_TEMPORARY, 1, MAKE_SWIZZLE4(SWIZZLE_W))
+    #
+    #     program.append(ins)
+    #
+    #     results = encode(program)
+    #     self._assert_final_marker(results)
+    #     self.assertEqual(len(results), 2)
+    #     self._assert_vsh([0x00000000, 0x0420061B, 0x083613FC, 0x5011F818], results[0])
 
     def _assert_final_marker(self, results):
         self.assertEqual([0, 0, 0, 1], results[-1])
@@ -178,5 +194,6 @@ class VSHEncoderTestCase(unittest.TestCase):
         diff = vsh_diff_instructions(expected, actual)
         self.assertEqual("", diff)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

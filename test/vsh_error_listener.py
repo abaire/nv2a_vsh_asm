@@ -3,8 +3,10 @@ from antlr4.error.ErrorListener import ErrorListener
 
 VshError = collections.namedtuple("VshError", ["message", "symbol", "line", "column"])
 
+
 class VshErrorListener(ErrorListener):
     """ErrorListener implementation for the nv2a vertex shader grammar."""
+
     def __init__(self):
         self.errors = []
 

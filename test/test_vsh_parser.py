@@ -27,8 +27,8 @@ _JUST_COMMENTS = """
      // Line comment prefixed with whitespace
 """
 
-class VSHParserTestCase(unittest.TestCase):
 
+class VSHParserTestCase(unittest.TestCase):
     def _make_parser(self, input_text: str):
         lexer = VshLexer(antlr4.InputStream(input_text))
         stream = antlr4.CommonTokenStream(lexer)
@@ -84,5 +84,5 @@ class VSHParserTestCase(unittest.TestCase):
         self.assertTrue(self._error_listener.ok)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
