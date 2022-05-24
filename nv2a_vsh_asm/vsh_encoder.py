@@ -27,7 +27,6 @@
 
 import collections
 import enum
-import sys
 from typing import List, Optional, Tuple
 
 SWIZZLE_X = 0
@@ -51,6 +50,8 @@ OMUX_ILU = 1
 
 
 class InputRegisters(enum.IntEnum):
+    """Defines the valid input registers for nv2a hardware."""
+
     REG_POS = 0
     V0 = 0
     REG_WEIGHT = 1
@@ -83,9 +84,11 @@ class InputRegisters(enum.IntEnum):
 
 
 class OutputRegisters(enum.IntEnum):
+    """Defines the valid output registers for nv2a hardware."""
+
     REG_POS = 0
-    REG_WEIGHT = 1
-    REG_NORMAL = 2
+    # REG_WEIGHT = 1
+    # REG_NORMAL = 2
     REG_DIFFUSE = 3
     REG_SPECULAR = 4
     REG_FOG_COORD = 5
@@ -96,11 +99,11 @@ class OutputRegisters(enum.IntEnum):
     REG_TEX1 = 10
     REG_TEX2 = 11
     REG_TEX3 = 12
-    REG_13 = 13
-    REG_14 = 14
+    # REG_13 = 13
+    # REG_14 = 14
 
 
-def MAKE_SWIZZLE4(
+def make_swizzle(
     a: int, b: Optional[int] = None, c: Optional[int] = None, d: Optional[int] = None
 ) -> int:
     """Creates a swizzle mask from the given components."""
@@ -114,19 +117,30 @@ def MAKE_SWIZZLE4(
     return ((a) << 0) | ((b) << 3) | ((c) << 6) | ((d) << 9)
 
 
-def GET_SWZ(swz, idx):
+def _get_swizzle(swz, idx):
     return ((swz) >> ((idx) * 3)) & 0x7
 
 
-def GET_BIT(msk, idx):
-    return ((msk) >> (idx)) & 0x1
+_SWIZZLE_NAME = {
+    SWIZZLE_X: "x",
+    SWIZZLE_Y: "y",
+    SWIZZLE_Z: "z",
+    SWIZZLE_W: "w",
+}
 
 
-SWIZZLE_XYZW = MAKE_SWIZZLE4(SWIZZLE_X, SWIZZLE_Y, SWIZZLE_Z, SWIZZLE_W)
-SWIZZLE_XXXX = MAKE_SWIZZLE4(SWIZZLE_X, SWIZZLE_X, SWIZZLE_X, SWIZZLE_X)
-SWIZZLE_YYYY = MAKE_SWIZZLE4(SWIZZLE_Y, SWIZZLE_Y, SWIZZLE_Y, SWIZZLE_Y)
-SWIZZLE_ZZZZ = MAKE_SWIZZLE4(SWIZZLE_Z, SWIZZLE_Z, SWIZZLE_Z, SWIZZLE_Z)
-SWIZZLE_WWWW = MAKE_SWIZZLE4(SWIZZLE_W, SWIZZLE_W, SWIZZLE_W, SWIZZLE_W)
+def get_swizzle_name(swizzle):
+    ret = ""
+    for i in range(4):
+        ret += _SWIZZLE_NAME[_get_swizzle(swizzle, i)]
+    return ret
+
+
+SWIZZLE_XYZW = make_swizzle(SWIZZLE_X, SWIZZLE_Y, SWIZZLE_Z, SWIZZLE_W)
+SWIZZLE_XXXX = make_swizzle(SWIZZLE_X, SWIZZLE_X, SWIZZLE_X, SWIZZLE_X)
+SWIZZLE_YYYY = make_swizzle(SWIZZLE_Y, SWIZZLE_Y, SWIZZLE_Y, SWIZZLE_Y)
+SWIZZLE_ZZZZ = make_swizzle(SWIZZLE_Z, SWIZZLE_Z, SWIZZLE_Z, SWIZZLE_Z)
+SWIZZLE_WWWW = make_swizzle(SWIZZLE_W, SWIZZLE_W, SWIZZLE_W, SWIZZLE_W)
 
 WRITEMASK_X = 0x1
 WRITEMASK_Y = 0x2
@@ -178,6 +192,30 @@ _vsh_mask = {
     WRITEMASK_XYZW: MASK_XYZW,
 }
 
+_WRITEMASK_NAME = {
+    WRITEMASK_X: ".x",
+    WRITEMASK_Y: ".y",
+    WRITEMASK_XY: ".xy",
+    WRITEMASK_Z: ".z",
+    WRITEMASK_XZ: ".xz",
+    WRITEMASK_YZ: ".yz",
+    WRITEMASK_XYZ: ".xyz",
+    WRITEMASK_W: ".w",
+    WRITEMASK_XW: ".xw",
+    WRITEMASK_YW: ".yw",
+    WRITEMASK_XYW: ".xyw",
+    WRITEMASK_ZW: ".zw",
+    WRITEMASK_XZW: ".xzw",
+    WRITEMASK_YZW: ".yzw",
+    WRITEMASK_XYZW: "",
+}
+
+
+def get_writemask_name(value: int) -> str:
+    """Returns a pretty printed string for the given write mask."""
+    return _WRITEMASK_NAME[value]
+
+
 COND_GT = 1  # greater than zero
 COND_EQ = 2  # equal to zero
 COND_LT = 3  # less than zero
@@ -206,7 +244,7 @@ NEGATE_NONE = 0x0
 INST_INDEX_BITS = 12
 
 
-class prog_opcode(enum.Enum):
+class Opcode(enum.Enum):
     # ARB_vp   ARB_fp   NV_vp   NV_fp     GLSL
     # ------------------------------------------
     OPCODE_NOP = enum.auto()  # X
@@ -232,7 +270,7 @@ class prog_opcode(enum.Enum):
     OPCODE_SUB = enum.auto()  # X        X       1.1     X         X
 
 
-class gl_register_file(enum.Enum):
+class RegisterFile(enum.Enum):
     PROGRAM_TEMPORARY = enum.auto()  # machine->Temporary[]
     PROGRAM_INPUT = enum.auto()  # machine->Inputs[]
     PROGRAM_OUTPUT = enum.auto()  # machine->Outputs[]
@@ -246,7 +284,7 @@ class SourceRegister:
 
     def __init__(
         self,
-        file: gl_register_file,
+        file: RegisterFile,
         index: int = 0,
         swizzle: int = SWIZZLE_XYZW,
         rel_addr: int = 0,
@@ -258,13 +296,16 @@ class SourceRegister:
         self.rel_addr = rel_addr
         self.negate = negate
 
+    def __repr__(self):
+        return f"{type(self).__name__}({self.file} {self.index} {get_swizzle_name(self.swizzle)})"
+
 
 class DestinationRegister:
     """Models information about a destination register."""
 
     def __init__(
         self,
-        file: gl_register_file,
+        file: RegisterFile,
         index: int = 0,
         write_mask: int = WRITEMASK_XYZW,
         rel_addr: int = 0,
@@ -274,13 +315,16 @@ class DestinationRegister:
         self.write_mask = write_mask
         self.rel_addr = rel_addr
 
+    def __repr__(self):
+        return f"{type(self).__name__}({self.file} {self.index} {_WRITEMASK_NAME[self.write_mask]})"
+
 
 class Instruction:
     """Models a single instruction."""
 
     def __init__(
         self,
-        opcode: prog_opcode,
+        opcode: Opcode,
         dst_reg: Optional[DestinationRegister] = None,
         src_a: Optional[SourceRegister] = None,
         src_b: Optional[SourceRegister] = None,
@@ -289,6 +333,14 @@ class Instruction:
         self.opcode = opcode
         self.dst_reg = dst_reg
         self.src_reg = [src_a, src_b, src_c]
+
+    def __repr__(self):
+        params = [repr(p) for p in self.src_reg if p]
+        return (
+            f"<{type(self).__name__} {self.opcode} {repr(self.dst_reg)} "
+            + " ".join(params)
+            + ">"
+        )
 
 
 class _VshField(enum.Enum):
@@ -490,81 +542,81 @@ def _process_opcode(ins: Instruction, out: List[int]) -> Tuple[bool, bool]:
     ilu = False
     mac = False
 
-    if ins.opcode == prog_opcode.OPCODE_MOV:
+    if ins.opcode == Opcode.OPCODE_MOV:
         _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_MOV)
         mac = True
 
-    elif ins.opcode == prog_opcode.OPCODE_ADD:
+    elif ins.opcode == Opcode.OPCODE_ADD:
         _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_ADD)
         mac = True
 
-    elif ins.opcode == prog_opcode.OPCODE_SUB:
+    elif ins.opcode == Opcode.OPCODE_SUB:
         _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_ADD)
         _vsh_set_field(out, _VshField.FLD_C_NEG, 1)
         mac = True
         raise Exception("TODO: xor negated args")
 
-    elif ins.opcode == prog_opcode.OPCODE_MAD:
+    elif ins.opcode == Opcode.OPCODE_MAD:
         _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_MAD)
         mac = True
 
-    elif ins.opcode == prog_opcode.OPCODE_MUL:
+    elif ins.opcode == Opcode.OPCODE_MUL:
         _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_MUL)
         mac = True
 
-    elif ins.opcode == prog_opcode.OPCODE_MAX:
+    elif ins.opcode == Opcode.OPCODE_MAX:
         _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_MAX)
         mac = True
 
-    elif ins.opcode == prog_opcode.OPCODE_MIN:
+    elif ins.opcode == Opcode.OPCODE_MIN:
         _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_MIN)
         mac = True
 
-    elif ins.opcode == prog_opcode.OPCODE_SGE:
+    elif ins.opcode == Opcode.OPCODE_SGE:
         _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_SGE)
         mac = True
 
-    elif ins.opcode == prog_opcode.OPCODE_SLT:
+    elif ins.opcode == Opcode.OPCODE_SLT:
         _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_SLT)
         mac = True
 
-    elif ins.opcode == prog_opcode.OPCODE_DP3:
+    elif ins.opcode == Opcode.OPCODE_DP3:
         _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_DP3)
         mac = True
 
-    elif ins.opcode == prog_opcode.OPCODE_DP4:
+    elif ins.opcode == Opcode.OPCODE_DP4:
         _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_DP4)
         mac = True
 
-    elif ins.opcode == prog_opcode.OPCODE_DPH:
+    elif ins.opcode == Opcode.OPCODE_DPH:
         _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_DPH)
         mac = True
 
-    elif ins.opcode == prog_opcode.OPCODE_DST:
+    elif ins.opcode == Opcode.OPCODE_DST:
         _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_DST)
         mac = True
 
-    elif ins.opcode == prog_opcode.OPCODE_RCP:
+    elif ins.opcode == Opcode.OPCODE_RCP:
         _vsh_set_field(out, _VshField.FLD_ILU, ILU.ILU_RCP)
         ilu = True
 
-    elif ins.opcode == prog_opcode.OPCODE_RCC:
+    elif ins.opcode == Opcode.OPCODE_RCC:
         _vsh_set_field(out, _VshField.FLD_ILU, ILU.ILU_RCC)
         ilu = True
 
-    elif ins.opcode == prog_opcode.OPCODE_RSQ:
+    elif ins.opcode == Opcode.OPCODE_RSQ:
         _vsh_set_field(out, _VshField.FLD_ILU, ILU.ILU_RSQ)
         ilu = True
 
-    elif ins.opcode == prog_opcode.OPCODE_EXP:
+    elif ins.opcode == Opcode.OPCODE_EXP:
         _vsh_set_field(out, _VshField.FLD_ILU, ILU.ILU_EXP)
         ilu = True
 
-    elif ins.opcode == prog_opcode.OPCODE_LOG:
+    elif ins.opcode == Opcode.OPCODE_LOG:
         _vsh_set_field(out, _VshField.FLD_ILU, ILU.ILU_LOG)
         ilu = True
 
-    elif ins.opcode == prog_opcode.OPCODE_LIT:
+    elif ins.opcode == Opcode.OPCODE_LIT:
         _vsh_set_field(out, _VshField.FLD_ILU, ILU.ILU_LIT)
         ilu = True
 
@@ -578,7 +630,7 @@ def _process_destination(ins: Instruction, ilu: bool, mac: bool, vsh_ins: List[i
     if not ins.dst_reg:
         return
 
-    if ins.dst_reg.file == gl_register_file.PROGRAM_TEMPORARY:
+    if ins.dst_reg.file == RegisterFile.PROGRAM_TEMPORARY:
         _vsh_set_field(vsh_ins, _VshField.FLD_OUT_R, ins.dst_reg.index)
         if mac:
             _vsh_set_field(
@@ -590,7 +642,7 @@ def _process_destination(ins: Instruction, ilu: bool, mac: bool, vsh_ins: List[i
             )
         return
 
-    if ins.dst_reg.file == gl_register_file.PROGRAM_OUTPUT:
+    if ins.dst_reg.file == RegisterFile.PROGRAM_OUTPUT:
         _vsh_set_field(
             vsh_ins, _VshField.FLD_OUT_O_MASK, _vsh_mask[ins.dst_reg.write_mask]
         )
@@ -603,7 +655,7 @@ def _process_destination(ins: Instruction, ilu: bool, mac: bool, vsh_ins: List[i
         _vsh_set_field(vsh_ins, _VshField.FLD_OUT_ADDRESS, ins.dst_reg.index)
         return
 
-    if ins.dst_reg.file == gl_register_file.PROGRAM_ENV_PARAM:
+    if ins.dst_reg.file == RegisterFile.PROGRAM_ENV_PARAM:
         _vsh_set_field(
             vsh_ins, _VshField.FLD_OUT_O_MASK, _vsh_mask[ins.dst_reg.write_mask]
         )
@@ -628,7 +680,7 @@ def _process_source(ins: Instruction, ilu: bool, mac: bool, vsh_ins: List[int]):
         ins.src_reg[2] = ins.src_reg[0]
         ins.src_reg[0] = None
 
-    if ins.opcode == prog_opcode.OPCODE_ADD or ins.opcode == prog_opcode.OPCODE_SUB:
+    if ins.opcode == Opcode.OPCODE_ADD or ins.opcode == Opcode.OPCODE_SUB:
         # ADD/SUB use A and C. Swap src reg 1 and 2
         assert not ins.src_reg[2]
         ins.src_reg[2] = ins.src_reg[1]
@@ -641,14 +693,14 @@ def _process_source(ins: Instruction, ilu: bool, mac: bool, vsh_ins: List[int]):
         # TODO: A0 rel
         assert not reg.rel_addr
 
-        if reg.file == gl_register_file.PROGRAM_TEMPORARY:
+        if reg.file == RegisterFile.PROGRAM_TEMPORARY:
             _vsh_set_field(vsh_ins, _mux_field[i], PARAM_R)
             _vsh_set_field(vsh_ins, _reg_field[i], reg.index)
-        elif reg.file == gl_register_file.PROGRAM_ENV_PARAM:
+        elif reg.file == RegisterFile.PROGRAM_ENV_PARAM:
             _vsh_set_field(vsh_ins, _mux_field[i], PARAM_C)
             # TODO: the index needs ajustment?
             _vsh_set_field(vsh_ins, _VshField.FLD_CONST, reg.index + 96)
-        elif reg.file == gl_register_file.PROGRAM_INPUT:
+        elif reg.file == RegisterFile.PROGRAM_INPUT:
             _vsh_set_field(vsh_ins, _mux_field[i], PARAM_V)
             # TODO: Double check that the index maps to the right input register
             _vsh_set_field(vsh_ins, _VshField.FLD_V, reg.index)
@@ -659,7 +711,7 @@ def _process_source(ins: Instruction, ilu: bool, mac: bool, vsh_ins: List[int]):
             _vsh_set_field(vsh_ins, _neg_field[i], 1)
 
         for j in range(4):
-            _vsh_set_field(vsh_ins, _swizzle_field[i][j], GET_SWZ(reg.swizzle, j))
+            _vsh_set_field(vsh_ins, _swizzle_field[i][j], _get_swizzle(reg.swizzle, j))
 
 
 def _process_instruction(ins: Instruction, vsh_ins: List[int]):
@@ -668,8 +720,8 @@ def _process_instruction(ins: Instruction, vsh_ins: List[int]):
     _process_source(ins, ilu, mac, vsh_ins)
 
 
-def encode(instructions: List[Instruction]):
-    program = [] * 136
+def encode(instructions: List[Instruction]) -> List[int]:
+    program = []
     for ins in instructions:
         vsh_ins = [0, 0, 0, 0]
         _vsh_set_field(vsh_ins, _VshField.FLD_ILU, ILU.ILU_NOP)
@@ -702,8 +754,5 @@ def encode(instructions: List[Instruction]):
         vsh_ins = [0, 0, 0, 0]
         _vsh_set_field(vsh_ins, _VshField.FLD_FINAL, 1)
         program.append(vsh_ins)
-
-    # for v in program[:10]:
-    #     print(f"0x{v[0]:08x} 0x{v[1]:08x} 0x{v[2]:08x} 0x{v[3]:08x}")
 
     return program

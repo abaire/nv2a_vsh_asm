@@ -14,10 +14,10 @@ class VSHEncoderTestCase(unittest.TestCase):
 
         # MOV oD0.xyzw, v3
         dst = DestinationRegister(
-            gl_register_file.PROGRAM_OUTPUT, OutputRegisters.REG_DIFFUSE
+            RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_DIFFUSE
         )
-        src = SourceRegister(gl_register_file.PROGRAM_INPUT, InputRegisters.REG_DIFFUSE)
-        program.append(Instruction(prog_opcode.OPCODE_MOV, dst, src))
+        src = SourceRegister(RegisterFile.PROGRAM_INPUT, InputRegisters.REG_DIFFUSE)
+        program.append(Instruction(Opcode.OPCODE_MOV, dst, src))
 
         results = encode(program)
         self._assert_final_marker(results)
@@ -29,14 +29,14 @@ class VSHEncoderTestCase(unittest.TestCase):
 
         # MOV(oT0.xy, v0.zw);
         dst = DestinationRegister(
-            gl_register_file.PROGRAM_OUTPUT, OutputRegisters.REG_TEX0, WRITEMASK_XY
+            RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_TEX0, WRITEMASK_XY
         )
         src = SourceRegister(
-            gl_register_file.PROGRAM_INPUT,
+            RegisterFile.PROGRAM_INPUT,
             InputRegisters.V0,
-            MAKE_SWIZZLE4(SWIZZLE_Z, SWIZZLE_W),
+            make_swizzle(SWIZZLE_Z, SWIZZLE_W),
         )
-        program.append(Instruction(prog_opcode.OPCODE_MOV, dst, src))
+        program.append(Instruction(Opcode.OPCODE_MOV, dst, src))
 
         results = encode(program)
         self._assert_final_marker(results)
@@ -48,12 +48,12 @@ class VSHEncoderTestCase(unittest.TestCase):
 
         # MOV oPos.xy, R0.xy
         dst = DestinationRegister(
-            gl_register_file.PROGRAM_OUTPUT, OutputRegisters.REG_POS, WRITEMASK_XY
+            RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_POS, WRITEMASK_XY
         )
         src = SourceRegister(
-            gl_register_file.PROGRAM_TEMPORARY, 0, MAKE_SWIZZLE4(SWIZZLE_X, SWIZZLE_Y)
+            RegisterFile.PROGRAM_TEMPORARY, 0, make_swizzle(SWIZZLE_X, SWIZZLE_Y)
         )
-        program.append(Instruction(prog_opcode.OPCODE_MOV, dst, src))
+        program.append(Instruction(Opcode.OPCODE_MOV, dst, src))
 
         results = encode(program)
         self._assert_final_marker(results)
@@ -99,14 +99,14 @@ class VSHEncoderTestCase(unittest.TestCase):
         program = []
 
         # MUL R0.x, v0.x, c0.x // Ignore rest of line
-        dst = DestinationRegister(gl_register_file.PROGRAM_TEMPORARY, 0, WRITEMASK_X)
+        dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 0, WRITEMASK_X)
         src_a = SourceRegister(
-            gl_register_file.PROGRAM_INPUT, InputRegisters.V0, MAKE_SWIZZLE4(SWIZZLE_X)
+            RegisterFile.PROGRAM_INPUT, InputRegisters.V0, make_swizzle(SWIZZLE_X)
         )
         src_b = SourceRegister(
-            gl_register_file.PROGRAM_ENV_PARAM, 0, MAKE_SWIZZLE4(SWIZZLE_X)
+            RegisterFile.PROGRAM_ENV_PARAM, 0, make_swizzle(SWIZZLE_X)
         )
-        program.append(Instruction(prog_opcode.OPCODE_MUL, dst, src_a, src_b))
+        program.append(Instruction(Opcode.OPCODE_MUL, dst, src_a, src_b))
 
         results = encode(program)
         self._assert_final_marker(results)
@@ -117,14 +117,14 @@ class VSHEncoderTestCase(unittest.TestCase):
         program = []
 
         # ADD R0.y, R0.y, c1.w
-        dst = DestinationRegister(gl_register_file.PROGRAM_TEMPORARY, 0, WRITEMASK_Y)
+        dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 0, WRITEMASK_Y)
         src_a = SourceRegister(
-            gl_register_file.PROGRAM_TEMPORARY, 0, MAKE_SWIZZLE4(SWIZZLE_Y)
+            RegisterFile.PROGRAM_TEMPORARY, 0, make_swizzle(SWIZZLE_Y)
         )
         src_b = SourceRegister(
-            gl_register_file.PROGRAM_ENV_PARAM, 1, MAKE_SWIZZLE4(SWIZZLE_W)
+            RegisterFile.PROGRAM_ENV_PARAM, 1, make_swizzle(SWIZZLE_W)
         )
-        program.append(Instruction(prog_opcode.OPCODE_ADD, dst, src_a, src_b))
+        program.append(Instruction(Opcode.OPCODE_ADD, dst, src_a, src_b))
 
         results = encode(program)
         self._assert_final_marker(results)
@@ -136,11 +136,11 @@ class VSHEncoderTestCase(unittest.TestCase):
 
         # DP4(oPos,x, v0, c[96]);
         dst = DestinationRegister(
-            gl_register_file.PROGRAM_OUTPUT, OutputRegisters.REG_POS, WRITEMASK_X
+            RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_POS, WRITEMASK_X
         )
-        src_a = SourceRegister(gl_register_file.PROGRAM_INPUT, InputRegisters.V0)
-        src_b = SourceRegister(gl_register_file.PROGRAM_ENV_PARAM, 0)
-        program.append(Instruction(prog_opcode.OPCODE_DP4, dst, src_a, src_b))
+        src_a = SourceRegister(RegisterFile.PROGRAM_INPUT, InputRegisters.V0)
+        src_b = SourceRegister(RegisterFile.PROGRAM_ENV_PARAM, 0)
+        program.append(Instruction(Opcode.OPCODE_DP4, dst, src_a, src_b))
 
         results = encode(program)
         self._assert_final_marker(results)
@@ -151,17 +151,17 @@ class VSHEncoderTestCase(unittest.TestCase):
         program = []
 
         # MAD(R0,x, v0.y, c[96].y, R0.x);
-        dst = DestinationRegister(gl_register_file.PROGRAM_TEMPORARY, 0, WRITEMASK_X)
+        dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 0, WRITEMASK_X)
         src_a = SourceRegister(
-            gl_register_file.PROGRAM_INPUT, InputRegisters.V0, MAKE_SWIZZLE4(SWIZZLE_Y)
+            RegisterFile.PROGRAM_INPUT, InputRegisters.V0, make_swizzle(SWIZZLE_Y)
         )
         src_b = SourceRegister(
-            gl_register_file.PROGRAM_ENV_PARAM, 96 - 96, MAKE_SWIZZLE4(SWIZZLE_Y)
+            RegisterFile.PROGRAM_ENV_PARAM, 96 - 96, make_swizzle(SWIZZLE_Y)
         )
         src_c = SourceRegister(
-            gl_register_file.PROGRAM_TEMPORARY, 0, MAKE_SWIZZLE4(SWIZZLE_X)
+            RegisterFile.PROGRAM_TEMPORARY, 0, make_swizzle(SWIZZLE_X)
         )
-        program.append(Instruction(prog_opcode.OPCODE_MAD, dst, src_a, src_b, src_c))
+        program.append(Instruction(Opcode.OPCODE_MAD, dst, src_a, src_b, src_c))
 
         results = encode(program)
         self._assert_final_marker(results)

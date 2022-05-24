@@ -1,4 +1,4 @@
-add r0, v0,c2
+add r0.xyz, v0.zzz,c2.wxy
 dp3 r2, r0, r1
 dp4 r2, r0, r1
 dph r2, r0, r1
@@ -11,9 +11,9 @@ max r11, r3, r4
 min r0, r3, r4
 mov r10, v2
 mul r4, v0, r1
-rcc r1, r0
-rcp r1, r2
-rsq r1, r2
+rcc r1.x, r0.w
+rcp oPos, r2
+rsq oPos.x, r2
 sge r1, r2, v1
 slt r1, r2, v1
-sub r2, v2, r2
+; sub r2, v2, r2  # TODO: Implement

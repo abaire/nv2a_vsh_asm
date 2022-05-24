@@ -1,15 +1,12 @@
 """nv2a vertex shader language assembler"""
+from typing import List
+
 import antlr4
 from build.grammar.VshLexer import VshLexer
 from build.grammar.VshParser import VshParser
-from build.grammar.VshVisitor import VshVisitor
 
 from . import vsh_encoder
-
-
-class _Visitor(VshVisitor):
-    def visitOp_add(self, ctx: VshParser.Op_addContext):
-        return super().visitOp_add(ctx)
+from . import encoding_visitor
 
 
 class Assembler:
@@ -17,7 +14,8 @@ class Assembler:
 
     def __init__(self, source: str):
         self._source = source
-        self._output = ""
+        self._output = []
+        self._pretty_sources = []
 
     def assemble(self) -> bool:
         """Assembles the source code and populates the output byte array"""
@@ -26,18 +24,23 @@ class Assembler:
         token_stream = antlr4.CommonTokenStream(lexer)
         parser = VshParser(token_stream)
 
-        visitor = _Visitor()
-        self._output = visitor.visit(parser.program())
-        print(f"OUTPUT: {self._output}")
+        visitor = encoding_visitor.EncodingVisitor()
+        program = visitor.visit(parser.program())
 
-        dst = vsh_encoder.DestinationRegister(
-            vsh_encoder.gl_register_file.PROGRAM_OUTPUT
-        )
-        ins = vsh_encoder.Instruction(vsh_encoder.prog_opcode.OPCODE_MOV, dst)
-        vsh_encoder.encode([ins])
-
+        instructions, sources = zip(*program)
+        self._output = vsh_encoder.encode(instructions)
+        self._pretty_sources = sources
         return True
 
     @property
-    def output(self) -> str:
+    def output(self) -> List[int]:
         return self._output
+
+    def get_c_output(self):
+        lines = []
+
+        for (a, b, c, d), source in zip(self._output, self._pretty_sources):
+            lines.append(f"/* {source} */")
+            lines.append(f"0x{a:08x}, 0x{b:08x}, 0x{c:08x}, 0x{d:08x},")
+
+        return "\n".join(lines)

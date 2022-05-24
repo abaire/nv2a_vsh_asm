@@ -58,10 +58,11 @@ p_out_in : p_output SEP p_input ;
 p_out_in_in : p_output SEP p_input SEP p_input ;
 p_out_in_in_in : p_output SEP p_input SEP p_input SEP p_input ;
 
+// TODO: Support writing to A0 (ARL instruction only)
 p_output : (REG_Rx | REG_OUTPUT) DESTINATION_MASK? ;
 // Input swizzling is more permissive than destination masks, but the matching is
 // overlapping so both tokens are accepted.
-p_input : (REG_Rx | REG_INPUT) (SWIZZLE_MASK | DESTINATION_MASK)? ;
+p_input : (REG_Rx | REG_INPUT | REG_Cx | REG_A0) (SWIZZLE_MASK | DESTINATION_MASK)? ;
 
 NEGATE : '-' ;
 FLOAT : [0-9]+ ('.' [0-9]*)? 'f'? ;
@@ -80,14 +81,14 @@ SWIZZLE_MASK : '.' SWIZZLE_MASK_COMPONENT SWIZZLE_MASK_COMPONENT? SWIZZLE_MASK_C
 
 // Input registers
 
-fragment REG_Cx : [cC][0-9] | [1-8][0-9] | '9'[0-5] ;
+REG_Cx : [cC][0-9] | [1-8][0-9] | '9'[0-5] ;
 fragment REG_I_POS : [vV]'0' | 'iPos' ;
 fragment REG_I_WEIGHT : [vV]'1' | 'iWeight' ;
 fragment REG_I_NORMAL : [vV]'2' | 'iNormal' ;
 fragment REG_I_DIFFUSE : [vV]'3' | 'iDiffuse' ;
 fragment REG_I_SPECULAR : [vV]'4' | 'iSpecular' ;
 fragment REG_I_FOG : [vV]'5' | 'iFog' ;
-fragment REG_V6 : [vV]'6' ;
+fragment REG_V6 : [vV]'6' | 'iPts' ;
 fragment REG_I_BACK_DIFFUSE : [vV]'7' | 'iBackDiffuse' ;
 fragment REG_I_BACK_SPECULAR : [vV]'8' | 'iBackSpecular' ;
 fragment REG_I_TEX0 : [vV]'9' | 'iTex0' ;
@@ -99,9 +100,7 @@ fragment REG_V14 : [vV]'14' ;
 fragment REG_V15 : [vV]'15' ;
 
 REG_INPUT :
-    REG_A0
-    | REG_Cx
-    | REG_I_POS
+    REG_I_POS
     | REG_I_WEIGHT
     | REG_I_NORMAL
     | REG_I_DIFFUSE
@@ -149,7 +148,7 @@ REG_OUTPUT :
 
 // General purpose registers
 REG_Rx : [rR] ([0-9] | '1'[0-1]) ;
-fragment REG_A0 : [aA]'0.x' ;
+REG_A0 : [aA]'0.x' ;
 
 // Define constants
 DEF : ('DEF' | 'def') FLOAT ;

@@ -20,10 +20,14 @@ def main(args):
         asm = nv2a_vsh_asm.Assembler(infile.read())
 
     asm.assemble()
+    results = asm.get_c_output()
 
     if args.output:
-        raise Exception("TODO: FINISHME")
-    print(asm.output)
+        with open(args.output, "w") as outfile:
+            outfile.write(results)
+    else:
+        print(results)
+
     return 0
 
 
