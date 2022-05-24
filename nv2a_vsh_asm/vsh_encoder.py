@@ -304,6 +304,9 @@ class SourceRegister:
         self.rel_addr = rel_addr
         self.negate = negate
 
+    def set_negated(self):
+        self.negate = True
+
     def __repr__(self):
         return f"{type(self).__name__}({self.file} {self.index} {get_swizzle_name(self.swizzle)})"
 

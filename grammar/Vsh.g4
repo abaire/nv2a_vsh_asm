@@ -64,7 +64,9 @@ reg_const : REG_Cx_BARE | REG_Cx_BRACKETED | REG_Cx_RELATIVE_A_FIRST | REG_Cx_RE
 p_output : (REG_Rx | REG_OUTPUT) DESTINATION_MASK? ;
 // Input swizzling is more permissive than destination masks, but the matching is
 // overlapping so both tokens are accepted.
-p_input : (REG_Rx | REG_INPUT | reg_const) (SWIZZLE_MASK | DESTINATION_MASK)? ;
+p_input_raw : (REG_Rx | REG_INPUT | reg_const) (SWIZZLE_MASK | DESTINATION_MASK)? ;
+p_input_negated : NEGATE p_input_raw ;
+p_input : p_input_raw | p_input_negated ;
 
 NEGATE : '-' ;
 INTEGER : [0-9]+ ;
@@ -84,7 +86,8 @@ SWIZZLE_MASK : '.' SWIZZLE_MASK_COMPONENT SWIZZLE_MASK_COMPONENT? SWIZZLE_MASK_C
 
 // Input registers
 
-fragment REG_Cx_INDEX : ([0-9] | [1-8][0-9] | '9'[0-5]) ;
+// TODO: Consider using c-96 to c95 instead of c0 to c191
+fragment REG_Cx_INDEX : ([0-9] | [1-9][0-9] | '1'[0-8][0-9] | '19'[0-1]) ;
 REG_Cx_BARE : [cC] REG_Cx_INDEX ;
 fragment REG_Cx_BRACKET_START : 'c[' | 'C[' ;
 fragment REG_Cx_BRACKET_END : ']' ;

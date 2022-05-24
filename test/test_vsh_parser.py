@@ -103,6 +103,10 @@ class VSHParserTestCase(unittest.TestCase):
         self._parse("add r0, v0, c[12 + A0]")
         self.assertTrue(self._error_listener.ok)
 
+    def test_negated_input(self):
+        self._parse("add r0, -v0, c1")
+        self.assertTrue(self._error_listener.ok)
+
 
 if __name__ == "__main__":
     unittest.main()

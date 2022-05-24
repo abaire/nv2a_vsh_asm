@@ -26,4 +26,12 @@ MOV oT2.xyzw, v11
 // [0x00000000, 0x0020161B, 0x0836106C, 0x2070F858]
 
 MOV oT3.xyzw, v12
-// [0x00000000, 0x0020181B, 0x0836106C, 0x2070F861]
+// [0x00000000, 0x0020181B, 0x0836106C, 0x2070F860]
+
+/*
+ The 0th bit of the last test case must be set to 1 to indicate that it is the end
+ of the program. (test_simple in test_vsh_assembler uses inline_final_flag)
+*/
+
+ADD R6.xyz, c17, -R10
+// [0x00000000, 0x0062201B, 0x0C36146E, 0x9E600FF9]

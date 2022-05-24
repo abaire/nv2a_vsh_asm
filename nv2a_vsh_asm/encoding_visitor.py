@@ -382,7 +382,7 @@ class EncodingVisitor(VshVisitor):
             mask = ctx.children[1].symbol
         return self._process_output(target, mask)
 
-    def visitP_input(self, ctx: VshParser.P_inputContext):
+    def visitP_input_raw(self, ctx: VshParser.P_input_rawContext):
         subtree = self.visitChildren(ctx)
         if subtree:
             source = subtree[0]
@@ -392,6 +392,16 @@ class EncodingVisitor(VshVisitor):
         if len(ctx.children) > 1:
             swizzle = ctx.children[1].symbol
         return self._process_input(source, swizzle)
+
+    def visitP_input_negated(self, ctx: VshParser.P_input_negatedContext):
+        contents = self.visitChildren(ctx)
+        assert len(contents) == 1
+        src_reg = contents[0]
+        src_reg.set_negated()
+        return src_reg
+
+    def visitP_input(self, ctx: VshParser.P_inputContext):
+        return self.visitChildren(ctx)[0]
 
     def visitReg_const(self, ctx: VshParser.Reg_constContext):
         reg = ctx.children[0].symbol
@@ -453,7 +463,6 @@ class EncodingVisitor(VshVisitor):
     def _process_input(self, source, swizzle):
         swizzle = self._process_source_swizzle(swizzle)
 
-        # TODO: Handle negation
         if source.type == VshLexer.REG_Rx:
             register = int(source.text[1:])
             return vsh_encoder.SourceRegister(

@@ -72,6 +72,72 @@ class VSHAssemblerTestCase(unittest.TestCase):
         self.assertEqual(len(results), 2)
         self._assert_vsh([0x00000000, 0x00C1E81B, 0x0836186C, 0x20708848], results[0])
 
+    def test_negated_temp(self):
+        asm = Assembler("ADD R6.xyz, c17, -R10")
+        asm.assemble()
+        results = asm.output
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x0062201B, 0x0C36146E, 0x9E600FF8], results[0])
+
+    def test_negated_temp_swizzle(self):
+        asm = Assembler("MAD R11.xyw, -R1.yzxw, R7.zxyw, R10")
+        asm.assemble()
+        results = asm.output
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x00800163, 0x150EE86E, 0x9DB00FF8], results[0])
+
+    def test_negated_bare_const(self):
+        asm = Assembler("DP3 R7.z, R0, -c23")
+        asm.assemble()
+        results = asm.output
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x00A2E01B, 0x0636186C, 0x22700FF8], results[0])
+
+    def test_negated_bracketed_const(self):
+        asm = Assembler("DP3 R7.z, R0, -c[23]")
+        asm.assemble()
+        results = asm.output
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x00A2E01B, 0x0636186C, 0x22700FF8], results[0])
+
+    def test_negated_bare_const_swizzled(self):
+        asm = Assembler("MAD R0.z, R0.z, c[117].z, -c117.w")
+        asm.assemble()
+        results = asm.output
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x008EA0AA, 0x0554BFFD, 0x72000000], results[0])
+
+    def test_negated_bracketed_const_swizzled(self):
+        asm = Assembler("MAD R0.z, R0.z, c[117].z, -c[117].w")
+        asm.assemble()
+        results = asm.output
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x008EA0AA, 0x0554BFFD, 0x72000000], results[0])
+
+    # FLD_OUT_R is set to a non-default value despite nothing being written to a temp register
+    # + 	FLD_OUT_R 0x9 (1001) != actual 0x7 (0111)
+    # def test_negated_bare_const_swizzle(self):
+    #     asm = Assembler("MAD oPos.xy, R0.xy, c[96].w, -c96.z")
+    #     asm.assemble()
+    #     results = asm.output
+    #     self._assert_final_marker(results)
+    #     self.assertEqual(len(results), 2)
+    #     self._assert_vsh([0x00000000, 0x008C0015, 0x05FE1EA8, 0x3090C800], results[0])
+    #
+    # def test_negated_bracketed_const_swizzle(self):
+    #     asm = Assembler("MAD oPos.xy, R0.xy, c[96].w, -c[96].z")
+    #     asm.assemble()
+    #     results = asm.output
+    #     self._assert_final_marker(results)
+    #     self.assertEqual(len(results), 2)
+    #     self._assert_vsh([0x00000000, 0x008C0015, 0x05FE1EA8, 0x3090C800], results[0])
+
     # def test_relative_const(self):
     #     asm = Assembler("MUL R3.xyzw, v6.x, c[A0+60]")
     #     asm.assemble()
