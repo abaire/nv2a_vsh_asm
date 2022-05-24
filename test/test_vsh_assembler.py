@@ -110,6 +110,20 @@ class VSHAssemblerTestCase(unittest.TestCase):
         for expected, actual in zip(expected_instructions, results):
             self._assert_vsh(expected, actual)
 
+    def test_ngb_lava(self):
+        all_input = os.path.join(_RESOURCE_PATH, "ngb_lava.vsh")
+        with open(all_input) as infile:
+            source = infile.read()
+
+        asm = Assembler(source)
+        asm.assemble(inline_final_flag=True)
+        results = asm.output
+
+        expected_instructions = _extract_expected_instructions(source)
+        self.assertEqual(len(results), len(expected_instructions))
+        for expected, actual in zip(expected_instructions, results):
+            self._assert_vsh(expected, actual)
+
     def _assert_final_marker(self, results):
         self.assertEqual([0, 0, 0, 1], results[-1])
 

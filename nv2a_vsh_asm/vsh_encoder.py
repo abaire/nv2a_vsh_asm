@@ -245,29 +245,45 @@ INST_INDEX_BITS = 12
 
 
 class Opcode(enum.Enum):
-    # ARB_vp   ARB_fp   NV_vp   NV_fp     GLSL
-    # ------------------------------------------
-    OPCODE_NOP = enum.auto()  # X
-    OPCODE_ADD = enum.auto()  # X        X       X       X         X
-    OPCODE_ARL = enum.auto()  # X                X                 X
-    OPCODE_DP3 = enum.auto()  # X        X       X       X         X
-    OPCODE_DP4 = enum.auto()  # X        X       X       X         X
-    OPCODE_DPH = enum.auto()  # X        X       1.1
-    OPCODE_DST = enum.auto()  # X        X       X       X
-    OPCODE_EXP = enum.auto()  # X                X
-    OPCODE_LIT = enum.auto()  # X        X       X       X
-    OPCODE_LOG = enum.auto()  # X                X
-    OPCODE_MAD = enum.auto()  # X        X       X       X         X
-    OPCODE_MAX = enum.auto()  # X        X       X       X         X
-    OPCODE_MIN = enum.auto()  # X        X       X       X         X
-    OPCODE_MOV = enum.auto()  # X        X       X       X         X
-    OPCODE_MUL = enum.auto()  # X        X       X       X         X
-    OPCODE_RCC = enum.auto()  # 1.1
-    OPCODE_RCP = enum.auto()  # X        X       X       X         X
-    OPCODE_RSQ = enum.auto()  # X        X       X       X         X
-    OPCODE_SGE = enum.auto()  # X        X       X       X         X
-    OPCODE_SLT = enum.auto()  # X        X       X       X         X
-    OPCODE_SUB = enum.auto()  # X        X       1.1     X         X
+    OPCODE_NOP = enum.auto()
+    OPCODE_ADD = enum.auto()
+    OPCODE_ARL = enum.auto()
+    OPCODE_DP3 = enum.auto()
+    OPCODE_DP4 = enum.auto()
+    OPCODE_DPH = enum.auto()
+    OPCODE_DST = enum.auto()
+    OPCODE_EXP = enum.auto()
+    OPCODE_LIT = enum.auto()
+    OPCODE_LOG = enum.auto()
+    OPCODE_MAD = enum.auto()
+    OPCODE_MAX = enum.auto()
+    OPCODE_MIN = enum.auto()
+    OPCODE_MOV = enum.auto()
+    OPCODE_MUL = enum.auto()
+    OPCODE_RCC = enum.auto()
+    OPCODE_RCP = enum.auto()
+    OPCODE_RSQ = enum.auto()
+    OPCODE_SGE = enum.auto()
+    OPCODE_SLT = enum.auto()
+    OPCODE_SUB = enum.auto()
+
+    def is_ilu(self) -> bool:
+        if self == self.OPCODE_EXP:
+            return True
+        if self == self.OPCODE_LIT:
+            return True
+        if self == self.OPCODE_LOG:
+            return True
+        if self == self.OPCODE_RCC:
+            return True
+        if self == self.OPCODE_RCP:
+            return True
+        if self == self.OPCODE_RSQ:
+            return True
+        return False
+
+    def is_mac(self) -> bool:
+        return not self.is_ilu()
 
 
 class RegisterFile(enum.Enum):
@@ -329,16 +345,25 @@ class Instruction:
         src_a: Optional[SourceRegister] = None,
         src_b: Optional[SourceRegister] = None,
         src_c: Optional[SourceRegister] = None,
+        paired_ilu_opcode: Optional[Opcode] = None,
+        paired_ilu_writemask: int = WRITEMASK_XYZW,
     ):
         self.opcode = opcode
         self.dst_reg = dst_reg
         self.src_reg = [src_a, src_b, src_c]
+        self.paired_ilu_opcode = paired_ilu_opcode
+        self.paired_ilu_writemask = paired_ilu_writemask
 
     def __repr__(self):
+        paired_info = ""
+        if self.paired_ilu_opcode:
+            paired_info = f" + {self.paired_ilu_opcode}=>r1{_WRITEMASK_NAME[self.paired_ilu_writemask]}"
+
         params = [repr(p) for p in self.src_reg if p]
         return (
             f"<{type(self).__name__} {self.opcode} {repr(self.dst_reg)} "
             + " ".join(params)
+            + f"{paired_info}"
             + ">"
         )
 
@@ -457,7 +482,7 @@ def vsh_diff_instructions(
             name = str(field)[10:]
 
             differences.append(
-                f"{name} 0x{e_val:x} ({e_val:0{mapping.bit_length}b}) != 0x{a_val:x} ({a_val:0{mapping.bit_length}b})"
+                f"{name} 0x{e_val:x} ({e_val:0{mapping.bit_length}b}) != actual 0x{a_val:x} ({a_val:0{mapping.bit_length}b})"
             )
 
     if not differences:
@@ -544,89 +569,109 @@ def _vsh_set_field(out: List[int], field_name: _VshField, v: int):
 
 
 def _process_opcode(ins: Instruction, out: List[int]) -> Tuple[bool, bool]:
-    ilu = False
-    mac = False
+    def _set(opcode: Opcode, mov_is_ilu=False):
+        ilu = False
+        mac = False
+        if opcode == Opcode.OPCODE_MOV:
+            if mov_is_ilu:
+                _vsh_set_field(out, _VshField.FLD_ILU, ILU.ILU_MOV)
+                ilu = True
+            else:
+                _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_MOV)
+                mac = True
 
-    if ins.opcode == Opcode.OPCODE_MOV:
-        _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_MOV)
-        mac = True
+        elif opcode == Opcode.OPCODE_ADD:
+            _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_ADD)
+            mac = True
 
-    elif ins.opcode == Opcode.OPCODE_ADD:
-        _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_ADD)
-        mac = True
+        elif opcode == Opcode.OPCODE_SUB:
+            _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_ADD)
+            _vsh_set_field(out, _VshField.FLD_C_NEG, 1)
+            mac = True
+            raise Exception("TODO: xor negated args")
 
-    elif ins.opcode == Opcode.OPCODE_SUB:
-        _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_ADD)
-        _vsh_set_field(out, _VshField.FLD_C_NEG, 1)
-        mac = True
-        raise Exception("TODO: xor negated args")
+        elif opcode == Opcode.OPCODE_MAD:
+            _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_MAD)
+            mac = True
 
-    elif ins.opcode == Opcode.OPCODE_MAD:
-        _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_MAD)
-        mac = True
+        elif opcode == Opcode.OPCODE_MUL:
+            _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_MUL)
+            mac = True
 
-    elif ins.opcode == Opcode.OPCODE_MUL:
-        _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_MUL)
-        mac = True
+        elif opcode == Opcode.OPCODE_MAX:
+            _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_MAX)
+            mac = True
 
-    elif ins.opcode == Opcode.OPCODE_MAX:
-        _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_MAX)
-        mac = True
+        elif opcode == Opcode.OPCODE_MIN:
+            _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_MIN)
+            mac = True
 
-    elif ins.opcode == Opcode.OPCODE_MIN:
-        _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_MIN)
-        mac = True
+        elif opcode == Opcode.OPCODE_SGE:
+            _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_SGE)
+            mac = True
 
-    elif ins.opcode == Opcode.OPCODE_SGE:
-        _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_SGE)
-        mac = True
+        elif opcode == Opcode.OPCODE_SLT:
+            _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_SLT)
+            mac = True
 
-    elif ins.opcode == Opcode.OPCODE_SLT:
-        _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_SLT)
-        mac = True
+        elif opcode == Opcode.OPCODE_DP3:
+            _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_DP3)
+            mac = True
 
-    elif ins.opcode == Opcode.OPCODE_DP3:
-        _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_DP3)
-        mac = True
+        elif opcode == Opcode.OPCODE_DP4:
+            _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_DP4)
+            mac = True
 
-    elif ins.opcode == Opcode.OPCODE_DP4:
-        _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_DP4)
-        mac = True
+        elif opcode == Opcode.OPCODE_DPH:
+            _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_DPH)
+            mac = True
 
-    elif ins.opcode == Opcode.OPCODE_DPH:
-        _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_DPH)
-        mac = True
+        elif opcode == Opcode.OPCODE_DST:
+            _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_DST)
+            mac = True
 
-    elif ins.opcode == Opcode.OPCODE_DST:
-        _vsh_set_field(out, _VshField.FLD_MAC, MAC.MAC_DST)
-        mac = True
+        elif opcode == Opcode.OPCODE_RCP:
+            _vsh_set_field(out, _VshField.FLD_ILU, ILU.ILU_RCP)
+            ilu = True
 
-    elif ins.opcode == Opcode.OPCODE_RCP:
-        _vsh_set_field(out, _VshField.FLD_ILU, ILU.ILU_RCP)
+        elif opcode == Opcode.OPCODE_RCC:
+            _vsh_set_field(out, _VshField.FLD_ILU, ILU.ILU_RCC)
+            ilu = True
+
+        elif opcode == Opcode.OPCODE_RSQ:
+            _vsh_set_field(out, _VshField.FLD_ILU, ILU.ILU_RSQ)
+            ilu = True
+
+        elif opcode == Opcode.OPCODE_EXP:
+            _vsh_set_field(out, _VshField.FLD_ILU, ILU.ILU_EXP)
+            ilu = True
+
+        elif opcode == Opcode.OPCODE_LOG:
+            _vsh_set_field(out, _VshField.FLD_ILU, ILU.ILU_LOG)
+            ilu = True
+
+        elif opcode == Opcode.OPCODE_LIT:
+            _vsh_set_field(out, _VshField.FLD_ILU, ILU.ILU_LIT)
+            ilu = True
+
+        else:
+            raise Exception(f"Invalid opcode for instruction {ins}")
+
+        return ilu, mac
+
+    ilu, mac = _set(ins.opcode)
+    if ins.paired_ilu_opcode:
+        add_ilu, add_mac = _set(ins.paired_ilu_opcode, True)
+        if ilu and add_ilu:
+            raise Exception(
+                "Paired instructions {ins.opcode} + {ins.paired_opcode} both use the ILU."
+            )
+        if mac and add_mac:
+            raise Exception(
+                "Paired instructions {ins.opcode} + {ins.paired_opcode} both use the MAC."
+            )
         ilu = True
-
-    elif ins.opcode == Opcode.OPCODE_RCC:
-        _vsh_set_field(out, _VshField.FLD_ILU, ILU.ILU_RCC)
-        ilu = True
-
-    elif ins.opcode == Opcode.OPCODE_RSQ:
-        _vsh_set_field(out, _VshField.FLD_ILU, ILU.ILU_RSQ)
-        ilu = True
-
-    elif ins.opcode == Opcode.OPCODE_EXP:
-        _vsh_set_field(out, _VshField.FLD_ILU, ILU.ILU_EXP)
-        ilu = True
-
-    elif ins.opcode == Opcode.OPCODE_LOG:
-        _vsh_set_field(out, _VshField.FLD_ILU, ILU.ILU_LOG)
-        ilu = True
-
-    elif ins.opcode == Opcode.OPCODE_LIT:
-        _vsh_set_field(out, _VshField.FLD_ILU, ILU.ILU_LIT)
-        ilu = True
-
-    else:
-        raise Exception(f"Invalid opcode for instruction {ins}")
+        mac = True
 
     return ilu, mac
 
@@ -634,6 +679,14 @@ def _process_opcode(ins: Instruction, out: List[int]) -> Tuple[bool, bool]:
 def _process_destination(ins: Instruction, ilu: bool, mac: bool, vsh_ins: List[int]):
     if not ins.dst_reg:
         return
+
+    # Flag the implicit R1 output from the ILU pairing.
+    if mac and ilu:
+        assert ins.paired_ilu_opcode
+        _vsh_set_field(vsh_ins, _VshField.FLD_OUT_R, 1)
+        _vsh_set_field(
+            vsh_ins, _VshField.FLD_OUT_ILU_MASK, _vsh_mask[ins.paired_ilu_writemask]
+        )
 
     if ins.dst_reg.file == RegisterFile.PROGRAM_TEMPORARY:
         _vsh_set_field(vsh_ins, _VshField.FLD_OUT_R, ins.dst_reg.index)
@@ -678,7 +731,7 @@ def _process_destination(ins: Instruction, ilu: bool, mac: bool, vsh_ins: List[i
 
 
 def _process_source(ins: Instruction, ilu: bool, mac: bool, vsh_ins: List[int]):
-    if ilu:
+    if ilu and not mac:
         # ILU instructions only use input C. Swap src reg 0 and 2.
         assert not ins.src_reg[1]
         assert not ins.src_reg[2]

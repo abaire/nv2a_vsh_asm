@@ -6,10 +6,6 @@ RCP(R1,w, R1.w);
 MOV(oT1,xyzw, v3);
 RCC(R1,x, R12.w);
 
-/* Slot 5: 0x00000000 0x0657821B 0x08361BFF 0x1018F818 */
-MUL(oD0,xyzw, v1, c[188]);
-RCC(R1,x, R12.w);
-
 /* Slot 5: 0x00000000 0x06ED861B 0x38379BFF 0x10B88848 */
 DP4(oT0,x, v3, c[108]);
 RCC(R1,x, R12.w);
