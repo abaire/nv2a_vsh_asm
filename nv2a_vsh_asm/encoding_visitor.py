@@ -1,4 +1,6 @@
 """Provides an ANTLR visitor that generates vsh instructions."""
+import re
+
 from build.grammar.VshLexer import VshLexer
 from build.grammar.VshParser import VshParser
 from build.grammar.VshVisitor import VshVisitor
@@ -118,8 +120,22 @@ _SOURCE_REGISTER_TO_NAME_MAP = {
 }
 
 
+_RELATIVE_CONSTANT_A_FIRST_RE = re.compile(r"[cC]\s*\[\s*[aA]0\s*\+\s*(\d+)\s*\]")
+_RELATIVE_CONSTANT_A_SECOND_RE = re.compile(r"[cC]\s*\[\s*(\d+)\s*\+\s*[aA]0\s*\]")
+_REG_CONSTANT = -1
+
+
 class EncodingVisitor(VshVisitor):
     """Visitor that generates a list of vsh instructions."""
+
+    class _ConstantRegister:
+        def __init__(self, index, is_relative=False):
+            self.index = index
+            self.is_relative = is_relative
+
+        @property
+        def type(self):
+            return _REG_CONSTANT
 
     def visitStatement(self, ctx: VshParser.StatementContext):
         operations = self.visitChildren(ctx)
@@ -313,13 +329,39 @@ class EncodingVisitor(VshVisitor):
             mask = ctx.children[1].symbol
         return self._process_output(target, mask)
 
-    # Visit a parse tree produced by VshParser#p_input.
     def visitP_input(self, ctx: VshParser.P_inputContext):
-        source = ctx.children[0].symbol
+        subtree = self.visitChildren(ctx)
+        if subtree:
+            source = subtree[0]
+        else:
+            source = ctx.children[0].symbol
         swizzle = None
         if len(ctx.children) > 1:
             swizzle = ctx.children[1].symbol
         return self._process_input(source, swizzle)
+
+    def visitReg_const(self, ctx: VshParser.Reg_constContext):
+        reg = ctx.children[0].symbol
+        if reg.type == VshLexer.REG_Cx_BARE:
+            register = int(reg.text[1:])
+            return self._ConstantRegister(register)
+        if reg.type == VshLexer.REG_Cx_BRACKETED:
+            register = int(reg.text[2:-1])
+            return self._ConstantRegister(register)
+        if reg.type == VshLexer.REG_Cx_RELATIVE_A_FIRST:
+            match = _RELATIVE_CONSTANT_A_FIRST_RE.match(reg.text)
+            if not match:
+                raise Exception(f"Failed to parse relative constant {reg.text}")
+            register = int(match.group(1))
+            return self._ConstantRegister(register, True)
+        if reg.type == VshLexer.REG_Cx_RELATIVE_A_SECOND:
+            match = _RELATIVE_CONSTANT_A_SECOND_RE.match(reg.text)
+            if not match:
+                raise Exception(f"Failed to parse relative constant {reg.text}")
+            register = int(match.group(1))
+            return self._ConstantRegister(register, True)
+
+        raise Exception(f"TODO: Implement unhandled const register format {reg.text}")
 
     def _process_destination_mask(self, mask):
         if not mask:
@@ -371,10 +413,9 @@ class EncodingVisitor(VshVisitor):
                 vsh_encoder.RegisterFile.PROGRAM_INPUT, register, swizzle
             )
 
-        if source.type == VshLexer.REG_Cx:
-            register = int(source.text[1:])
+        if source.type == _REG_CONSTANT:
             return vsh_encoder.SourceRegister(
-                vsh_encoder.RegisterFile.PROGRAM_ENV_PARAM, register, swizzle
+                vsh_encoder.RegisterFile.PROGRAM_ENV_PARAM, source.index, swizzle
             )
 
         if source.type == VshLexer.REG_A0:

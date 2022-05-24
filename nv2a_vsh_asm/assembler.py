@@ -26,6 +26,10 @@ class Assembler:
 
         visitor = encoding_visitor.EncodingVisitor()
         program = visitor.visit(parser.program())
+        if not program:
+            self._output = []
+            self._pretty_sources = []
+            return True
 
         instructions, sources = zip(*program)
         self._output = vsh_encoder.encode(instructions)
@@ -33,7 +37,7 @@ class Assembler:
         return True
 
     @property
-    def output(self) -> List[int]:
+    def output(self) -> List[List[int]]:
         return self._output
 
     def get_c_output(self):

@@ -1,7 +1,7 @@
 add r0.xyz, v0.zzz,c2.wxy
-dp3 r2, r0, r1
-dp4 r2, r0, r1
-dph r2, r0, r1
+dp3 r2, r0, c[3]
+dp4 r2, r0, c[A0+4]
+dph r2, r0, c[A0 + 95]
 dst r4, r0, r1
 expp r5, r0
 lit r0, r1

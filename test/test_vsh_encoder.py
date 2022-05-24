@@ -98,13 +98,13 @@ class VSHEncoderTestCase(unittest.TestCase):
     def test_mul_temp_in_const_swizzled(self):
         program = []
 
-        # MUL R0.x, v0.x, c0.x // Ignore rest of line
+        # MUL R0.x, v0.x, c96.x // Ignore rest of line
         dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 0, WRITEMASK_X)
         src_a = SourceRegister(
             RegisterFile.PROGRAM_INPUT, InputRegisters.V0, make_swizzle(SWIZZLE_X)
         )
         src_b = SourceRegister(
-            RegisterFile.PROGRAM_ENV_PARAM, 0, make_swizzle(SWIZZLE_X)
+            RegisterFile.PROGRAM_ENV_PARAM, 96, make_swizzle(SWIZZLE_X)
         )
         program.append(Instruction(Opcode.OPCODE_MUL, dst, src_a, src_b))
 
@@ -116,13 +116,13 @@ class VSHEncoderTestCase(unittest.TestCase):
     def test_add_temp_temp_const_swizzle(self):
         program = []
 
-        # ADD R0.y, R0.y, c1.w
+        # ADD R0.y, R0.y, c[97].w
         dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 0, WRITEMASK_Y)
         src_a = SourceRegister(
             RegisterFile.PROGRAM_TEMPORARY, 0, make_swizzle(SWIZZLE_Y)
         )
         src_b = SourceRegister(
-            RegisterFile.PROGRAM_ENV_PARAM, 1, make_swizzle(SWIZZLE_W)
+            RegisterFile.PROGRAM_ENV_PARAM, 97, make_swizzle(SWIZZLE_W)
         )
         program.append(Instruction(Opcode.OPCODE_ADD, dst, src_a, src_b))
 
@@ -139,7 +139,7 @@ class VSHEncoderTestCase(unittest.TestCase):
             RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_POS, WRITEMASK_X
         )
         src_a = SourceRegister(RegisterFile.PROGRAM_INPUT, InputRegisters.V0)
-        src_b = SourceRegister(RegisterFile.PROGRAM_ENV_PARAM, 0)
+        src_b = SourceRegister(RegisterFile.PROGRAM_ENV_PARAM, 96)
         program.append(Instruction(Opcode.OPCODE_DP4, dst, src_a, src_b))
 
         results = encode(program)
@@ -156,7 +156,7 @@ class VSHEncoderTestCase(unittest.TestCase):
             RegisterFile.PROGRAM_INPUT, InputRegisters.V0, make_swizzle(SWIZZLE_Y)
         )
         src_b = SourceRegister(
-            RegisterFile.PROGRAM_ENV_PARAM, 96 - 96, make_swizzle(SWIZZLE_Y)
+            RegisterFile.PROGRAM_ENV_PARAM, 96, make_swizzle(SWIZZLE_Y)
         )
         src_c = SourceRegister(
             RegisterFile.PROGRAM_TEMPORARY, 0, make_swizzle(SWIZZLE_X)
@@ -239,7 +239,7 @@ class VSHEncoderTestCase(unittest.TestCase):
     #     # RCC(R1,x, R12.w);
     #     dst = DestinationRegister(RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_DIFFUSE)
     #     src_a = SourceRegister(RegisterFile.PROGRAM_INPUT, InputRegisters.V1)
-    #     src_b = SourceRegister(RegisterFile.PROGRAM_ENV_PARAM, 188 - 96)
+    #     src_b = SourceRegister(RegisterFile.PROGRAM_ENV_PARAM, 188)
     #
     #     ins = Instruction(Opcode.OPCODE_MUL, dst, src_a, src_b)
     #

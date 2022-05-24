@@ -699,7 +699,7 @@ def _process_source(ins: Instruction, ilu: bool, mac: bool, vsh_ins: List[int]):
         elif reg.file == RegisterFile.PROGRAM_ENV_PARAM:
             _vsh_set_field(vsh_ins, _mux_field[i], PARAM_C)
             # TODO: the index needs ajustment?
-            _vsh_set_field(vsh_ins, _VshField.FLD_CONST, reg.index + 96)
+            _vsh_set_field(vsh_ins, _VshField.FLD_CONST, reg.index)
         elif reg.file == RegisterFile.PROGRAM_INPUT:
             _vsh_set_field(vsh_ins, _mux_field[i], PARAM_V)
             # TODO: Double check that the index maps to the right input register

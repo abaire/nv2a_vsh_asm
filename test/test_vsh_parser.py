@@ -83,6 +83,18 @@ class VSHParserTestCase(unittest.TestCase):
             self._parse(infile.read())
         self.assertTrue(self._error_listener.ok)
 
+    def test_cx_bracketed(self):
+        self._parse("add r0, v0, c[12]")
+        self.assertTrue(self._error_listener.ok)
+
+    def test_cx_relative_a_first(self):
+        self._parse("add r0, v0, c[A0+12]")
+        self.assertTrue(self._error_listener.ok)
+
+    def test_cx_relative_a_second(self):
+        self._parse("add r0, v0, c[12 + A0]")
+        self.assertTrue(self._error_listener.ok)
+
 
 if __name__ == "__main__":
     unittest.main()

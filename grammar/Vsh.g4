@@ -58,13 +58,16 @@ p_out_in : p_output SEP p_input ;
 p_out_in_in : p_output SEP p_input SEP p_input ;
 p_out_in_in_in : p_output SEP p_input SEP p_input SEP p_input ;
 
+reg_const : REG_Cx_BARE | REG_Cx_BRACKETED | REG_Cx_RELATIVE_A_FIRST | REG_Cx_RELATIVE_A_SECOND ;
+
 // TODO: Support writing to A0 (ARL instruction only)
 p_output : (REG_Rx | REG_OUTPUT) DESTINATION_MASK? ;
 // Input swizzling is more permissive than destination masks, but the matching is
 // overlapping so both tokens are accepted.
-p_input : (REG_Rx | REG_INPUT | REG_Cx | REG_A0) (SWIZZLE_MASK | DESTINATION_MASK)? ;
+p_input : (REG_Rx | REG_INPUT | reg_const) (SWIZZLE_MASK | DESTINATION_MASK)? ;
 
 NEGATE : '-' ;
+INTEGER : [0-9]+ ;
 FLOAT : [0-9]+ ('.' [0-9]*)? 'f'? ;
 fragment COMP_X : 'x' | 'X' | 'r' | 'R' ;
 fragment COMP_Y : 'y' | 'Y' | 'g' | 'G' ;
@@ -81,7 +84,13 @@ SWIZZLE_MASK : '.' SWIZZLE_MASK_COMPONENT SWIZZLE_MASK_COMPONENT? SWIZZLE_MASK_C
 
 // Input registers
 
-REG_Cx : [cC][0-9] | [1-8][0-9] | '9'[0-5] ;
+fragment REG_Cx_INDEX : ([0-9] | [1-8][0-9] | '9'[0-5]) ;
+REG_Cx_BARE : [cC] REG_Cx_INDEX ;
+fragment REG_Cx_BRACKET_START : 'c[' | 'C[' ;
+fragment REG_Cx_BRACKET_END : ']' ;
+REG_Cx_BRACKETED : REG_Cx_BRACKET_START REG_Cx_INDEX REG_Cx_BRACKET_END ;
+REG_Cx_RELATIVE_A_FIRST : REG_Cx_BRACKET_START WHITESPACE* 'A0' WHITESPACE* COMBINE WHITESPACE* REG_Cx_INDEX WHITESPACE* REG_Cx_BRACKET_END ;
+REG_Cx_RELATIVE_A_SECOND : REG_Cx_BRACKET_START WHITESPACE* REG_Cx_INDEX WHITESPACE* COMBINE WHITESPACE* 'A0' WHITESPACE* REG_Cx_BRACKET_END ;
 fragment REG_I_POS : [vV]'0' | 'iPos' ;
 fragment REG_I_WEIGHT : [vV]'1' | 'iWeight' ;
 fragment REG_I_NORMAL : [vV]'2' | 'iNormal' ;
