@@ -433,7 +433,9 @@ def _get_field_val(vsh_ins: List[int], mapping: _FieldMapping) -> int:
     return val
 
 
-def vsh_diff_instructions(expected: List[int], actual: List[int]) -> str:
+def vsh_diff_instructions(
+    expected: List[int], actual: List[int], ignore_final_flag=False
+) -> str:
     """Provides a verbose explanation of the difference of two encoded instructions.
 
     :return "" if the instructions match, else a string explaining the delta.
@@ -445,6 +447,9 @@ def vsh_diff_instructions(expected: List[int], actual: List[int]) -> str:
         differences.append(f"Invalid instruction, [0](0x{actual[0]:08x} must == 0")
 
     for field, mapping in _Mapping.items():
+        if ignore_final_flag and field == _VshField.FLD_FINAL:
+            continue
+
         e_val = _get_field_val(expected, mapping)
         a_val = _get_field_val(actual, mapping)
 
@@ -720,7 +725,7 @@ def _process_instruction(ins: Instruction, vsh_ins: List[int]):
     _process_source(ins, ilu, mac, vsh_ins)
 
 
-def encode(instructions: List[Instruction]) -> List[List[int]]:
+def encode(instructions: List[Instruction], inline_final_flag=False) -> List[List[int]]:
     program = []
     for ins in instructions:
         vsh_ins = [0, 0, 0, 0]
@@ -751,8 +756,11 @@ def encode(instructions: List[Instruction]) -> List[List[int]]:
         program.append(vsh_ins)
 
     if program:
-        vsh_ins = [0, 0, 0, 0]
-        _vsh_set_field(vsh_ins, _VshField.FLD_FINAL, 1)
-        program.append(vsh_ins)
+        if inline_final_flag:
+            _vsh_set_field(program[-1], _VshField.FLD_FINAL, 1)
+        else:
+            vsh_ins = [0, 0, 0, 0]
+            _vsh_set_field(vsh_ins, _VshField.FLD_FINAL, 1)
+            program.append(vsh_ins)
 
     return program

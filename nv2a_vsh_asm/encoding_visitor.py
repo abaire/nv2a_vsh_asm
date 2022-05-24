@@ -149,6 +149,7 @@ class EncodingVisitor(VshVisitor):
         return instructions[0]
 
     def visitCombined_operation(self, ctx: VshParser.Combined_operationContext):
+        operations = self.visitChildren(ctx)
         raise Exception("TODO: Implement me.")
 
     def visitOp_add(self, ctx: VshParser.Op_addContext):

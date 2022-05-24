@@ -11,7 +11,6 @@ from test.vsh_error_listener import VshErrorListener
 
 _RESOURCE_PATH = os.path.dirname(pathlib.Path(__file__).resolve())
 
-
 _JUST_COMMENTS = """
 /* Single line block comment */
 
@@ -25,6 +24,11 @@ _JUST_COMMENTS = """
  ; Alternative line comment
 
      // Line comment prefixed with whitespace
+"""
+
+_COMBINED = """
+MOV oD0.xyzw, v3 // A comment should not break combining
++ RCP R1.w, R1.w
 """
 
 
@@ -81,6 +85,10 @@ class VSHParserTestCase(unittest.TestCase):
         all_input = os.path.join(_RESOURCE_PATH, "all.vsh")
         with open(all_input) as infile:
             self._parse(infile.read())
+        self.assertTrue(self._error_listener.ok)
+
+    def test_combined(self):
+        self._parse(_JUST_COMMENTS)
         self.assertTrue(self._error_listener.ok)
 
     def test_cx_bracketed(self):

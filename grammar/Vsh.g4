@@ -9,7 +9,7 @@ statement :
     ;
 
 combined_operation :
-    operation COMBINE operation
+    operation NEWLINE* COMBINE NEWLINE* operation
     ;
 
 operation :

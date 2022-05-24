@@ -17,7 +17,7 @@ class Assembler:
         self._output = []
         self._pretty_sources = []
 
-    def assemble(self) -> bool:
+    def assemble(self, **kwargs) -> bool:
         """Assembles the source code and populates the output byte array"""
         input_stream = antlr4.InputStream(self._source)
         lexer = VshLexer(input_stream)
@@ -32,7 +32,7 @@ class Assembler:
             return True
 
         instructions, sources = zip(*program)
-        self._output = vsh_encoder.encode(instructions)
+        self._output = vsh_encoder.encode(instructions, **kwargs)
         self._pretty_sources = sources
         return True
 

@@ -1,8 +1,44 @@
+import pathlib
+import os
+import re
 from typing import List
 import unittest
 
 from nv2a_vsh_asm.assembler import Assembler
 from nv2a_vsh_asm import vsh_encoder
+
+_RESOURCE_PATH = os.path.dirname(pathlib.Path(__file__).resolve())
+
+_HEX_MATCH = r"0x[0-9a-fA-F]+"
+# // [0x00000000, 0x0400001B, 0x083613FC, 0x2070F82C]
+_EXPECTED_OUTPUT_RE = re.compile(
+    r"^\s*//\s*\[\s*("
+    + _HEX_MATCH
+    + "),\s*("
+    + _HEX_MATCH
+    + "),\s*("
+    + _HEX_MATCH
+    + "),\s*("
+    + _HEX_MATCH
+    + ")\s*]\s*$",
+    re.MULTILINE,
+)
+
+
+def _extract_expected_instructions(source: str) -> List[List[int]]:
+    ret = []
+
+    for match in re.finditer(_EXPECTED_OUTPUT_RE, source):
+        ret.append(
+            [
+                int(match.group(1), 16),
+                int(match.group(2), 16),
+                int(match.group(3), 16),
+                int(match.group(4), 16),
+            ]
+        )
+
+    return ret
 
 
 class VSHAssemblerTestCase(unittest.TestCase):
@@ -59,6 +95,20 @@ class VSHAssemblerTestCase(unittest.TestCase):
     #     self._assert_final_marker(results)
     #     self.assertEqual(len(results), 2)
     #     self._assert_vsh([0x00000000, 0x00478C00, 0x0836186C, 0x2F300FFA], results[0])
+
+    def test_simple(self):
+        all_input = os.path.join(_RESOURCE_PATH, "simple.vsh")
+        with open(all_input) as infile:
+            source = infile.read()
+
+        asm = Assembler(source)
+        asm.assemble(inline_final_flag=True)
+        results = asm.output
+
+        expected_instructions = _extract_expected_instructions(source)
+        self.assertEqual(len(results), len(expected_instructions))
+        for expected, actual in zip(expected_instructions, results):
+            self._assert_vsh(expected, actual)
 
     def _assert_final_marker(self, results):
         self.assertEqual([0, 0, 0, 1], results[-1])
