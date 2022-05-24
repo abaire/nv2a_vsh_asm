@@ -1,10 +1,15 @@
 // Grammar for the nv2a vertex shader language.
 grammar Vsh;
 
-program : program_line* EOF ;
-program_line :
+program : statement* EOF ;
+statement :
     NEWLINE
+    | combined_operation
     | operation
+    ;
+
+combined_operation :
+    operation COMBINE operation
     ;
 
 operation :
@@ -179,6 +184,7 @@ OP_RSQ : 'RSQ' | 'rsq' ;
 
 OP_RCC : 'RCC' | 'rcc' ;
 
+COMBINE : '+' ;
 NEWLINE : ('\r\n' | '\n' | '\r')+ ;
 SEP : ',' ;
 SEP_MULTILINE : SEP NEWLINE ;
