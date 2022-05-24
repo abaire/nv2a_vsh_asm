@@ -720,7 +720,7 @@ def _process_instruction(ins: Instruction, vsh_ins: List[int]):
     _process_source(ins, ilu, mac, vsh_ins)
 
 
-def encode(instructions: List[Instruction]) -> List[int]:
+def encode(instructions: List[Instruction]) -> List[List[int]]:
     program = []
     for ins in instructions:
         vsh_ins = [0, 0, 0, 0]

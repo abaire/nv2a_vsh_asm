@@ -67,12 +67,12 @@ class VSHEncoderTestCase(unittest.TestCase):
     #     program = []
     #
     #     # RCP(R1,x, R0.w);
-    #     dst = DestinationRegister(gl_register_file.PROGRAM_TEMPORARY, 1, WRITEMASK_X)
+    #     dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 1, WRITEMASK_X)
     #
     #     # TODO: Investigate why this is not wwww
     #     # The vp20 compiler is emitting 0's instead of repeating the last component.
-    #     src = SourceRegister(gl_register_file.PROGRAM_TEMPORARY, 0, MAKE_SWIZZLE4(SWIZZLE_W, 0, 0, 0))
-    #     program.append(Instruction(prog_opcode.OPCODE_RCP, dst, src))
+    #     src = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 0, make_swizzle(SWIZZLE_W, 0, 0, 0))
+    #     program.append(Instruction(Opcode.OPCODE_RCP, dst, src))
     #
     #     results = encode(program)
     #     self._assert_final_marker(results)
@@ -85,10 +85,10 @@ class VSHEncoderTestCase(unittest.TestCase):
     #     program = []
     #
     #     # MIN(R0,xyzw, R0.x, c[108].wzyx);
-    #     dst = DestinationRegister(gl_register_file.PROGRAM_TEMPORARY, 0, WRITEMASK_XYZW)
-    #     src_a = SourceRegister(gl_register_file.PROGRAM_TEMPORARY, 0, MAKE_SWIZZLE4(SWIZZLE_X))
-    #     src_b = SourceRegister(gl_register_file.PROGRAM_ENV_PARAM, 108 - 96, MAKE_SWIZZLE4(SWIZZLE_W, SWIZZLE_Z, SWIZZLE_Y, SWIZZLE_X))
-    #     program.append(Instruction(prog_opcode.OPCODE_MIN, dst, src_a, src_b))
+    #     dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 0, WRITEMASK_XYZW)
+    #     src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 0, make_swizzle(SWIZZLE_X))
+    #     src_b = SourceRegister(RegisterFile.PROGRAM_ENV_PARAM, 108 - 96, make_swizzle(SWIZZLE_W, SWIZZLE_Z, SWIZZLE_Y, SWIZZLE_X))
+    #     program.append(Instruction(Opcode.OPCODE_MIN, dst, src_a, src_b))
     #
     #     results = encode(program)
     #     self._assert_final_marker(results)
@@ -173,12 +173,13 @@ class VSHEncoderTestCase(unittest.TestCase):
     #
     #     # MOV(oD0,xyzw, v3);
     #     # RCP(R1,w, R1.w);
-    #     dst = DestinationRegister(gl_register_file.PROGRAM_OUTPUT, OutputRegisters.REG_DIFFUSE, WRITEMASK_XYZW)
-    #     src_a = SourceRegister(gl_register_file.PROGRAM_INPUT, InputRegisters.V3)
+    #     dst = DestinationRegister(RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_DIFFUSE, WRITEMASK_XYZW)
+    #     src_a = SourceRegister(RegisterFile.PROGRAM_INPUT, InputRegisters.V3)
     #
-    #     ins = Instruction(prog_opcode.OPCODE_MOV, dst, src_a)
-    #     dst = DestinationRegister(gl_register_file.PROGRAM_TEMPORARY, 1, WRITEMASK_W)
-    #     src_a = SourceRegister(gl_register_file.PROGRAM_TEMPORARY, 1, MAKE_SWIZZLE4(SWIZZLE_W))
+    #     ins = Instruction(Opcode.OPCODE_MOV, dst, src_a)
+    #
+    #     dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 1, WRITEMASK_W)
+    #     src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 1, make_swizzle(SWIZZLE_W))
     #
     #     program.append(ins)
     #
@@ -186,6 +187,118 @@ class VSHEncoderTestCase(unittest.TestCase):
     #     self._assert_final_marker(results)
     #     self.assertEqual(len(results), 2)
     #     self._assert_vsh([0x00000000, 0x0420061B, 0x083613FC, 0x5011F818], results[0])
+    #
+    #     # + 	0x00000000 0x0420061b 0x083613fc 0x5011f818
+    #     # + 	0x00000000 0x0020061b 0x0836106c 0x2070f818
+    #     # +
+    #     # + 	FLD_ILU 0x2 (010) != 0x0 (000)
+    #     # + 	FLD_C_SWZ_X 0x3 (11) != 0x0 (00)
+    #     # + 	FLD_C_SWZ_Y 0x3 (11) != 0x1 (01)
+    #     # + 	FLD_C_SWZ_Z 0x3 (11) != 0x2 (10)
+    #     # + 	FLD_C_R_LOW 0x1 (01) != 0x0 (00)
+    #     # + 	FLD_C_MUX 0x1 (01) != 0x2 (10)
+    #     # + 	FLD_OUT_R 0x1 (0001) != 0x7 (0111)
+    #     # + 	FLD_OUT_ILU_MASK 0x1 (0001) != 0x0 (0000)
+
+    # def test_mac_mov_ilu_rcc(self):
+    #     program = []
+    #
+    #     # MOV(oT1,xyzw, v3);
+    #     # RCC(R1,x, R12.w);
+    #     dst = DestinationRegister(RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_TEX1)
+    #     src_a = SourceRegister(RegisterFile.PROGRAM_INPUT, InputRegisters.V3)
+    #
+    #     ins = Instruction(Opcode.OPCODE_MOV, dst, src_a)
+    #
+    #     dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 1, WRITEMASK_X)
+    #     src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 12, make_swizzle(SWIZZLE_W))
+    #
+    #     program.append(ins)
+    #
+    #     results = encode(program)
+    #     self._assert_final_marker(results)
+    #     self.assertEqual(len(results), 2)
+    #     self._assert_vsh([0x00000000, 0x0620061B, 0x083613FF, 0x1018F850], results[0])
+    #
+    #     # + 	0x00000000 0x0620061b 0x083613ff 0x1018f850
+    #     # + 	0x00000000 0x0020061b 0x0836106c 0x2070f850
+    #     # +
+    #     # + 	FLD_ILU 0x3 (011) != 0x0 (000)
+    #     # + 	FLD_C_SWZ_X 0x3 (11) != 0x0 (00)
+    #     # + 	FLD_C_SWZ_Y 0x3 (11) != 0x1 (01)
+    #     # + 	FLD_C_SWZ_Z 0x3 (11) != 0x2 (10)
+    #     # + 	FLD_C_R_HIGH 0x3 (11) != 0x0 (00)
+    #     # + 	FLD_C_MUX 0x1 (01) != 0x2 (10)
+    #     # + 	FLD_OUT_R 0x1 (0001) != 0x7 (0111)
+    #     # + 	FLD_OUT_ILU_MASK 0x8 (1000) != 0x0 (0000)
+
+    # def test_mac_mov_ilu_rcp(self):
+    #     program = []
+    #
+    #     # MUL(oD0,xyzw, v1, c[188]);
+    #     # RCC(R1,x, R12.w);
+    #     dst = DestinationRegister(RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_DIFFUSE)
+    #     src_a = SourceRegister(RegisterFile.PROGRAM_INPUT, InputRegisters.V1)
+    #     src_b = SourceRegister(RegisterFile.PROGRAM_ENV_PARAM, 188 - 96)
+    #
+    #     ins = Instruction(Opcode.OPCODE_MUL, dst, src_a, src_b)
+    #
+    #     dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 1, WRITEMASK_X)
+    #     src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 12, make_swizzle(SWIZZLE_W))
+    #
+    #     program.append(ins)
+    #
+    #     results = encode(program)
+    #     self._assert_final_marker(results)
+    #     self.assertEqual(len(results), 2)
+    #     self._assert_vsh([0x00000000, 0x0657821B, 0x08361BFF, 0x1018F818], results[0])
+    #
+    #     # + 	0x00000000 0x0657821b 0x08361bff 0x1018f818
+    #     # + 	0x00000000 0x0057821b 0x0836186c 0x2070f818
+    #     # +
+    #     # + 	FLD_ILU 0x3 (011) != 0x0 (000)
+    #     # + 	FLD_C_SWZ_X 0x3 (11) != 0x0 (00)
+    #     # + 	FLD_C_SWZ_Y 0x3 (11) != 0x1 (01)
+    #     # + 	FLD_C_SWZ_Z 0x3 (11) != 0x2 (10)
+    #     # + 	FLD_C_R_HIGH 0x3 (11) != 0x0 (00)
+    #     # + 	FLD_C_MUX 0x1 (01) != 0x2 (10)
+    #     # + 	FLD_OUT_R 0x1 (0001) != 0x7 (0111)
+    #     # + 	FLD_OUT_ILU_MASK 0x8 (1000) != 0x0 (0000)
+
+    # def test_mac_mov_ilu_rcp(self):
+    #     program = []
+    #
+    #     # DP4(oT0,x, v3, c[108]);
+    #     # RCC(R1,x, R12.w);
+    #     dst = DestinationRegister(RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_TEX0, WRITEMASK_X)
+    #     src_a = SourceRegister(RegisterFile.PROGRAM_INPUT, InputRegisters.V3)
+    #     src_b = SourceRegister(RegisterFile.PROGRAM_ENV_PARAM, 108 - 96)
+    #
+    #     ins = Instruction(Opcode.OPCODE_DP4, dst, src_a, src_b)
+    #
+    #     dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 1, WRITEMASK_X)
+    #     src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 12, make_swizzle(SWIZZLE_W))
+    #
+    #     program.append(ins)
+    #
+    #     results = encode(program)
+    #     self._assert_final_marker(results)
+    #     self.assertEqual(len(results), 2)
+    #     self._assert_vsh([0x00000000, 0x06ED861B, 0x38379BFF, 0x10B88848], results[0])
+    #
+    #     # + 	0x00000000 0x06ed861b 0x38379bff 0x10b88848
+    #     # + 	0x00000000 0x00ed861b 0x0836186c 0x20708848
+    #     # +
+    #     # + 	FLD_ILU 0x3 (011) != 0x0 (000)
+    #     # + 	FLD_A_R 0x3 (0011) != 0x0 (0000)
+    #     # + 	FLD_B_R 0xc (1100) != 0x0 (0000)
+    #     # + 	FLD_C_SWZ_X 0x3 (11) != 0x0 (00)
+    #     # + 	FLD_C_SWZ_Y 0x3 (11) != 0x1 (01)
+    #     # + 	FLD_C_SWZ_Z 0x3 (11) != 0x2 (10)
+    #     # + 	FLD_C_R_HIGH 0x3 (11) != 0x0 (00)
+    #     # + 	FLD_C_MUX 0x1 (01) != 0x2 (10)
+    #     # + 	FLD_OUT_R 0xb (1011) != 0x7 (0111)
+    #     # + 	FLD_OUT_ILU_MASK 0x8 (1000) != 0x0 (0000)
 
     def _assert_final_marker(self, results):
         self.assertEqual([0, 0, 0, 1], results[-1])
