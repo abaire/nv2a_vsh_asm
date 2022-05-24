@@ -182,14 +182,6 @@ class EncodingVisitor(VshVisitor):
             b_src = temp
 
         ilu_dst: vsh_encoder.DestinationRegister = b.dst_reg
-        if (
-            ilu_dst.file != vsh_encoder.RegisterFile.PROGRAM_TEMPORARY
-            or ilu_dst.index != 1
-        ):
-            raise Exception(
-                f"Invalid paired ILU instruction (may only write to R1, writes to {ilu_dst.pretty_string()}) at {ctx.start.line}"
-            )
-
         mac_dst: vsh_encoder.DestinationRegister = a.dst_reg
         if (
             mac_dst.file == vsh_encoder.RegisterFile.PROGRAM_TEMPORARY
@@ -207,7 +199,7 @@ class EncodingVisitor(VshVisitor):
                 a.src_reg[1],
                 b.src_reg[0],
                 b.opcode,
-                ilu_dst.write_mask,
+                ilu_dst,
             ),
             f"{a_src} + {b_src}",
         )

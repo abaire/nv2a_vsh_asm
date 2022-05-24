@@ -233,14 +233,6 @@ FIXED12 = 0x4
 SATURATE_OFF = 0
 SATURATE_ZERO_ONE = 1
 
-NEGATE_X = 0x1
-NEGATE_Y = 0x2
-NEGATE_Z = 0x4
-NEGATE_W = 0x8
-NEGATE_XYZ = 0x7
-NEGATE_XYZW = 0xF
-NEGATE_NONE = 0x0
-
 INST_INDEX_BITS = 12
 
 
@@ -761,7 +753,7 @@ def _process_source(ins: Instruction, ilu: bool, mac: bool, vsh_ins: List[int]):
         else:
             raise Exception(f"Unsupported register type [{i}]{reg}")
 
-        if reg.negate == NEGATE_XYZW:
+        if reg.negate:
             _vsh_set_field(vsh_ins, _neg_field[i], 1)
 
         for j in range(4):

@@ -263,15 +263,6 @@ class VSHEncoderTestCase(unittest.TestCase):
         self.assertEqual(len(results), 2)
         self._assert_vsh([0x00000000, 0x0240081B, 0x1436186C, 0x2F20F824], results[0])
 
-        # AssertionError: Instructions differ.
-        # 	0x00000000 0x0240081b 0x1436186c 0x2f20f824
-        # 	0x00000000 0x0240081b 0x1436186c 0x2f2f0ff8
-        #
-        # 	FLD_OUT_ILU_MASK 0x0 (0000) != actual 0xf (1111)
-        # 	FLD_OUT_O_MASK 0xf (1111) != actual 0x0 (0000)
-        # 	FLD_OUT_ADDRESS 0x4 (00000100) != actual 0xff (11111111)
-        # 	FLD_OUT_MUX 0x1 (1) != actual 0x0 (0)
-
     def test_mac_mov_ilu_mov(self):
         program = []
 
@@ -295,14 +286,6 @@ class VSHEncoderTestCase(unittest.TestCase):
         self._assert_final_marker(results)
         self.assertEqual(len(results), 2)
         self._assert_vsh([0x00000000, 0x0220021B, 0x4436106C, 0x2E50C84C], results[0])
-
-        # 	0x00000000 0x0220021b 0x4436106c 0x2e50c84c
-        # 	0x00000000 0x0220021b 0x4436106c 0x2e5c0ff8
-        #
-        # 	FLD_OUT_ILU_MASK 0x0 (0000) != actual 0xc (1100)
-        # 	FLD_OUT_O_MASK 0xc (1100) != actual 0x0 (0000)
-        # 	FLD_OUT_ADDRESS 0x9 (00001001) != actual 0xff (11111111)
-        # 	FLD_OUT_MUX 0x1 (1) != actual 0x0 (0)
 
     def test_mac_mov_temp_const_ilu_mov_out_in(self):
         program = []
@@ -330,15 +313,6 @@ class VSHEncoderTestCase(unittest.TestCase):
         self.assertEqual(len(results), 2)
         self._assert_vsh([0x00000000, 0x0223681B, 0x0C3612A8, 0x2E80181C], results[0])
 
-        # AssertionError: Instructions differ.
-        # 	0x00000000 0x0223681b 0x0c3612a8 0x2e80181c
-        # 	0x00000000 0x0223681b 0x0c3612a8 0x2e810ff8
-        #
-        # 	FLD_OUT_ILU_MASK 0x0 (0000) != actual 0x1 (0001)
-        # 	FLD_OUT_O_MASK 0x1 (0001) != actual 0x0 (0000)
-        # 	FLD_OUT_ADDRESS 0x3 (00000011) != actual 0xff (11111111)
-        # 	FLD_OUT_MUX 0x1 (1) != actual 0x0 (0)
-
     def test_mac_dp3_ilu_mov(self):
         program = []
 
@@ -362,6 +336,22 @@ class VSHEncoderTestCase(unittest.TestCase):
         self._assert_final_marker(results)
         self.assertEqual(len(results), 2)
         self._assert_vsh([0x00000000, 0x02A0001B, 0x6436C86D, 0x5170E864], results[0])
+
+    def test_add_temp_const_neg_temp(self):
+        program = []
+        # ADD R6.xyz, c17, -R10
+        dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 6, WRITEMASK_XYZ)
+        src_a = SourceRegister(RegisterFile.PROGRAM_ENV_PARAM, 17)
+        src_b = SourceRegister(
+            RegisterFile.PROGRAM_TEMPORARY, 10, SWIZZLE_XYZW, 0, True
+        )
+        program.append(Instruction(Opcode.OPCODE_ADD, dst, src_a, src_b))
+
+        results = encode(program)
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+
+        self._assert_vsh([0x00000000, 0x0062201B, 0x0C36146E, 0x9E600FF8], results[0])
 
     def test_mac_arl_ilu_mov(self):
         # ARL A0, R2
