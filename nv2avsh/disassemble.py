@@ -9,7 +9,7 @@ import re
 import sys
 from typing import List
 
-from nv2a_vsh_asm import vsh_instruction
+from .nv2a_vsh_asm import vsh_instruction
 
 _HEX_MATCH = r"0x[0-9a-fA-F]+"
 _VALUE_RE = re.compile(r"\s*(" + _HEX_MATCH + r")\s*,?", re.MULTILINE)
@@ -76,7 +76,8 @@ def _main(args):
     return 0
 
 
-if __name__ == "__main__":
+def entrypoint():
+    """The main entrypoint for this program."""
 
     def _parse_args():
         parser = argparse.ArgumentParser()
@@ -121,3 +122,7 @@ if __name__ == "__main__":
         return parser.parse_args()
 
     sys.exit(_main(_parse_args()))
+
+
+if __name__ == "__main__":
+    entrypoint()

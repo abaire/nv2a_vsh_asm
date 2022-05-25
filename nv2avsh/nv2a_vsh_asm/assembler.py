@@ -2,8 +2,8 @@
 from typing import List
 
 import antlr4
-from build.grammar.VshLexer import VshLexer
-from build.grammar.VshParser import VshParser
+from nv2avsh.grammar.vsh.VshLexer import VshLexer
+from nv2avsh.grammar.vsh.VshParser import VshParser
 
 from . import vsh_encoder
 from . import encoding_visitor

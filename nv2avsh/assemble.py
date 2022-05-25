@@ -7,7 +7,7 @@ import logging
 import os
 import sys
 
-import nv2a_vsh_asm
+from . import nv2a_vsh_asm
 
 
 def _main(args):
@@ -33,7 +33,8 @@ def _main(args):
     return 0
 
 
-if __name__ == "__main__":
+def entrypoint():
+    """The main entrypoint for this program."""
 
     def _parse_args():
         parser = argparse.ArgumentParser()
@@ -61,3 +62,7 @@ if __name__ == "__main__":
         return parser.parse_args()
 
     sys.exit(_main(_parse_args()))
+
+
+if __name__ == "__main__":
+    entrypoint()

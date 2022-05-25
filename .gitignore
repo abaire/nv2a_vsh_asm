@@ -2,8 +2,12 @@
 
 __pycache__/
 build/
+nv2avsh/grammar/vsh/
 
 # Debug output
 out/
 
 .idea/
+.eggs/
+nv2a_vsh.egg-info/
+dist/

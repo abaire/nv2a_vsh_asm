@@ -10,8 +10,8 @@ import re
 from typing import List
 import unittest
 
-from nv2a_vsh_asm.assembler import Assembler
-from nv2a_vsh_asm import vsh_instruction
+from nv2avsh.nv2a_vsh_asm.assembler import Assembler
+from nv2avsh.nv2a_vsh_asm import vsh_instruction
 
 _RESOURCE_PATH = os.path.dirname(pathlib.Path(__file__).resolve())
 

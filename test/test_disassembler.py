@@ -7,7 +7,7 @@
 
 import unittest
 
-import disassemble
+from nv2avsh import disassemble
 import io
 
 
