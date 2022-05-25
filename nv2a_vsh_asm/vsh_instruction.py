@@ -1,4 +1,16 @@
 """Provides functionality for manipulating nv2a vertex shader machine code."""
+
+# pylint: disable=invalid-name
+# pylint: disable=missing-function-docstring
+# pylint: disable=protected-access
+# pylint: disable=too-few-public-methods
+# pylint: disable=too-many-arguments
+# pylint: disable=too-many-branches
+# pylint: disable=too-many-instance-attributes
+# pylint: disable=too-many-public-methods
+# pylint: disable=unused-wildcard-import
+# pylint: disable=wildcard-import
+
 import ctypes
 import itertools
 import struct
@@ -16,7 +28,7 @@ class _B(ctypes.LittleEndianStructure):
         ("A_SWZ_Y", ctypes.c_uint32, 2),
         ("A_SWZ_X", ctypes.c_uint32, 2),
         ("A_NEG", ctypes.c_uint32, 1),
-        ("V", ctypes.c_uint32, 4),
+        ("INPUT", ctypes.c_uint32, 4),
         ("CONST", ctypes.c_uint32, 8),
         ("MAC", ctypes.c_uint32, 4),
         ("ILU", ctypes.c_uint32, 3),
@@ -146,9 +158,10 @@ class VshInstruction:
             self.out_temp_reg = 7
             self.out_address = 0xFF
             self.out_mux = OMUX_MAC
-            self.out_orb = OUTPUT_O
+            self.out_o_or_c = OUTPUT_O
 
     def set_empty_final(self):
+        """Sets this instruction to a NOP with the FINAL flag set."""
         zero = bytes(b"\0" * 4)
         self._b = _B.from_buffer_copy(zero)
         self._c = _C.from_buffer_copy(zero)
@@ -207,22 +220,20 @@ class VshInstruction:
         else:
             self._b.A_NEG = 0
 
-    # TODO: Rename to input_reg
     @property
-    def v(self) -> int:
-        return self._b.V
+    def input_reg(self) -> int:
+        return self._b.INPUT
 
-    @v.setter
-    def v(self, val: int):
-        self._b.V = val
+    @input_reg.setter
+    def input_reg(self, val: int):
+        self._b.INPUT = val
 
-    # TODO: Rename to const_reg
     @property
-    def const(self) -> int:
+    def const_reg(self) -> int:
         return self._b.CONST
 
-    @const.setter
-    def const(self, val: int):
+    @const_reg.setter
+    def const_reg(self, val: int):
         self._b.CONST = val
 
     @property
@@ -420,14 +431,13 @@ class VshInstruction:
         self._d.OUT_ADDRESS = val
 
     @property
-    def out_orb(self) -> bool:
+    def out_o_or_c(self) -> bool:
         return bool(self._d.OUT_ORB)
 
-    # TODO: Rename to ...o_or_c?
     # This switches output address being treated as an output register or a constant
     # OUTPUT_O or OUTPUT_C
-    @out_orb.setter
-    def out_orb(self, val: bool):
+    @out_o_or_c.setter
+    def out_o_or_c(self, val: bool):
         if val:
             self._d.OUT_ORB = 1
         else:
@@ -482,6 +492,7 @@ class VshInstruction:
         self._d.C_TEMP_REG_LOW = val
 
     def encode(self) -> List[int]:
+        """Encodes this instruction into a machine code quadruplet."""
         a = 0
         b = struct.unpack("<L", self._b)[0]
         c = struct.unpack("<L", self._c)[0]
@@ -489,66 +500,70 @@ class VshInstruction:
 
         return [a, b, c, d]
 
-    def set_mux_field(self, i: int, val: int):
-        if i == 0:
+    def set_mux_field(self, src_index: int, val: int):
+        """Sets the mux field for the given src_index."""
+        if src_index == 0:
             self.a_mux = val
-        elif i == 1:
+        elif src_index == 1:
             self.b_mux = val
-        elif i == 2:
+        elif src_index == 2:
             self.c_mux = val
         else:
-            raise Exception(f"Invalid field index {i}")
+            raise Exception(f"Invalid field index {src_index}")
 
-    def set_temp_reg_field(self, i: int, val: int):
-        if i == 0:
+    def set_temp_reg_field(self, src_index: int, val: int):
+        """Sets the temp register access for the given src_index."""
+        if src_index == 0:
             self.a_temp_reg = val
-        elif i == 1:
+        elif src_index == 1:
             self.b_temp_reg = val
-        elif i == 2:
+        elif src_index == 2:
             self.c_temp_reg = val
         else:
-            raise Exception(f"Invalid field index {i}")
+            raise Exception(f"Invalid field index {src_index}")
 
-    def set_negate_field(self, i: int, val: bool):
-        if i == 0:
+    def set_negate_field(self, src_index: int, val: bool):
+        """Sets the negate field for the given src_index."""
+        if src_index == 0:
             self.a_negate = val
-        elif i == 1:
+        elif src_index == 1:
             self.b_negate = val
-        elif i == 2:
+        elif src_index == 2:
             self.c_negate = val
         else:
-            raise Exception(f"Invalid field index {i}")
+            raise Exception(f"Invalid field index {src_index}")
 
-    def set_swizzle_field(self, i: int, swizzle: int):
-        if i == 0:
+    def set_swizzle_fields(self, src_index: int, swizzle: int):
+        """Sets the swizzle fields for the given src_index."""
+        if src_index == 0:
             self.a_swizzle_x = get_swizzle(swizzle, 0)
             self.a_swizzle_y = get_swizzle(swizzle, 1)
             self.a_swizzle_z = get_swizzle(swizzle, 2)
             self.a_swizzle_w = get_swizzle(swizzle, 3)
-        elif i == 1:
+        elif src_index == 1:
             self.b_swizzle_x = get_swizzle(swizzle, 0)
             self.b_swizzle_y = get_swizzle(swizzle, 1)
             self.b_swizzle_z = get_swizzle(swizzle, 2)
             self.b_swizzle_w = get_swizzle(swizzle, 3)
-        elif i == 2:
+        elif src_index == 2:
             self.c_swizzle_x = get_swizzle(swizzle, 0)
             self.c_swizzle_y = get_swizzle(swizzle, 1)
             self.c_swizzle_z = get_swizzle(swizzle, 2)
             self.c_swizzle_w = get_swizzle(swizzle, 3)
         else:
-            raise Exception(f"Invalid field index {i}")
+            raise Exception(f"Invalid field index {src_index}")
 
     def _dissasemble_inputs(self) -> List[str]:
         def _process(mux, negate, temp_reg, x, y, z, w):
             if mux == PARAM_R:
                 ret = f"R{temp_reg}"
             elif mux == PARAM_C:
-                offset = f"{self.const}"
+                offset = f"{self.const_reg}"
                 if self.a0x:
                     offset = f"A0+{offset}"
                 ret = f"c[{offset}]"
             elif mux == PARAM_V:
-                ret = f"v{self.v}"
+                ret = f"v{self.input_reg}"
             else:
                 raise Exception(f"Unknown mux code {mux}")
             if negate:
@@ -619,7 +634,7 @@ class VshInstruction:
                 dst_output_mask = ".xyzw"
             dst_output_index = self.out_address
 
-            if self.out_orb == OUTPUT_O:
+            if self.out_o_or_c == OUTPUT_O:
                 dst_output_name = DESTINATION_REGISTER_TO_NAME_MAP_SHORT[
                     dst_output_index
                 ]
@@ -658,17 +673,17 @@ class VshInstruction:
     def _filter_mac_inputs(self, inputs) -> List[str]:
         if self.mac == MAC.MAC_MOV or self.mac == MAC.MAC_ARL:
             mac_inputs = [inputs[0]]
-        elif (
-            self.mac == MAC.MAC_MUL
-            or self.mac == MAC.MAC_DP3
-            or self.mac == MAC.MAC_DP4
-            or self.mac == MAC.MAC_DPH
-            or self.mac == MAC.MAC_DST
-            or self.mac == MAC.MAC_MIN
-            or self.mac == MAC.MAC_MAX
-            or self.mac == MAC.MAC_SGE
-            or self.mac == MAC.MAC_SLT
-        ):
+        elif self.mac in {
+            MAC.MAC_MUL,
+            MAC.MAC_DP3,
+            MAC.MAC_DP4,
+            MAC.MAC_DPH,
+            MAC.MAC_DST,
+            MAC.MAC_MIN,
+            MAC.MAC_MAX,
+            MAC.MAC_SGE,
+            MAC.MAC_SLT,
+        }:
             mac_inputs = [inputs[0], inputs[1]]
         elif self.mac == MAC.MAC_ADD:
             mac_inputs = [inputs[0], inputs[2]]
@@ -678,7 +693,8 @@ class VshInstruction:
             raise Exception(f"Unsupported MAC operand {self.mac}")
         return mac_inputs
 
-    def disassemble(self, trim_nop_writemask=False) -> str:
+    def disassemble(self) -> str:
+        """Disassembles this instruction into assembly language."""
         mac, ilu = self._disassemble_operands()
         mac_output, ilu_output = self._disassemble_outputs()
         inputs = self._dissasemble_inputs()
@@ -759,6 +775,9 @@ def vsh_diff_instructions(
     e_d = _D.from_buffer_copy(expected[3].to_bytes(4, byteorder=sys.byteorder))
     a_d = _D.from_buffer_copy(actual[3].to_bytes(4, byteorder=sys.byteorder))
     for f in _D._fields_:
+        if ignore_final_flag and f[0] == "FINAL":
+            continue
+
         e_val = getattr(e_d, f[0])
         a_val = getattr(a_d, f[0])
 
@@ -787,5 +806,5 @@ def vsh_diff_instructions(
 def explain(values: List[int]) -> str:
     """Returns a textual description of the given machine code quadruplet."""
     vsh = VshInstruction(True)
-    vsh.set_values([0x00000000, 0x006F20BF, 0x9C001456, 0x7C000002])
+    vsh.set_values(values)
     return vsh.explain()

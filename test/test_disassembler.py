@@ -1,3 +1,10 @@
+"""Tests for disassembler functionality."""
+
+# pylint: disable=missing-function-docstring
+# pylint: disable=protected-access
+# pylint: disable=too-many-public-methods
+# pylint: disable=wrong-import-order
+
 import unittest
 
 import disassemble
@@ -5,6 +12,8 @@ import io
 
 
 class DisassemblerTestCase(unittest.TestCase):
+    """Tests for disassembler functionality."""
+
     def test_text_input_parser_empty(self):
         test = io.StringIO("")
         result = disassemble._parse_text_input(test)

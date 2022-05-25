@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+"""Disassembles nv2a vertex shader machine code."""
+
 import argparse
 import logging
 import os
@@ -10,7 +12,7 @@ from typing import List
 from nv2a_vsh_asm import vsh_instruction
 
 _HEX_MATCH = r"0x[0-9a-fA-F]+"
-_VALUE_RE = re.compile(r"\s*(" + _HEX_MATCH + ")\s*,?", re.MULTILINE)
+_VALUE_RE = re.compile(r"\s*(" + _HEX_MATCH + r")\s*,?", re.MULTILINE)
 
 
 def _parse_text_input(infile):
@@ -47,7 +49,7 @@ def _disassemble(values: List[List[int]], explain: bool) -> List[str]:
     return ret
 
 
-def main(args):
+def _main(args):
     log_level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(level=log_level)
 
@@ -56,7 +58,7 @@ def main(args):
         return 1
 
     if args.text:
-        with open(args.input) as infile:
+        with open(args.input, encoding="utf-8") as infile:
             values = _parse_text_input(infile)
     else:
         with open(args.input, "rb") as infile:
@@ -66,7 +68,7 @@ def main(args):
     results = "\n".join(results)
 
     if args.output:
-        with open(args.output, "w") as outfile:
+        with open(args.output, "w", encoding="utf-8") as outfile:
             outfile.write(results)
     else:
         print(results)
@@ -96,7 +98,10 @@ if __name__ == "__main__":
             "-t",
             "--text",
             action="store_true",
-            help="Treat the source file as textual, it must contain a list of hexadecimal integers separated by commas.",
+            help=(
+                "Treat the source file as textual, it must contain a list of "
+                "hexadecimal integers separated by commas."
+            ),
         )
 
         parser.add_argument(
@@ -115,4 +120,4 @@ if __name__ == "__main__":
 
         return parser.parse_args()
 
-    exit(main(_parse_args()))
+    sys.exit(_main(_parse_args()))

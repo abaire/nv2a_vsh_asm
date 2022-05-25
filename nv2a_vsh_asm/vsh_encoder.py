@@ -1,3 +1,4 @@
+# pylint: disable=line-too-long
 """Handles encoding of nv2a vertex shader operations into machine code.
 
  * Based on https://github.com/XboxDev/nxdk/blob/c4b69e7a82452c21aa2c62701fd3836755950f58/tools/vp20compiler/prog_instruction.c#L1
@@ -24,18 +25,26 @@
  * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """
+# pylint: enable=line-too-long
 
-import collections
-import ctypes
+# pylint: disable=too-few-public-methods
+# pylint: disable=too-many-arguments
+# pylint: disable=too-many-branches
+# pylint: disable=too-many-return-statements
+# pylint: disable=too-many-statements
+# pylint: disable=unused-wildcard-import
+# pylint: disable=wildcard-import
+
 import enum
 from typing import List, Optional, Tuple
 
 from . import vsh_instruction
 from .vsh_encoder_defs import *
-from .vsh_instruction import vsh_diff_instructions
 
 
 class Opcode(enum.Enum):
+    """Enumerates all supported opcodes."""
+
     OPCODE_NOP = enum.auto()
     OPCODE_ADD = enum.auto()
     OPCODE_ARL = enum.auto()
@@ -59,6 +68,7 @@ class Opcode(enum.Enum):
     OPCODE_SUB = enum.auto()
 
     def is_ilu(self) -> bool:
+        """Returns True if this opcode is an ILU operation."""
         if self == self.OPCODE_EXP:
             return True
         if self == self.OPCODE_LIT:
@@ -74,6 +84,7 @@ class Opcode(enum.Enum):
         return False
 
     def is_mac(self) -> bool:
+        """Returns True if this opcode is a MAC operation."""
         return not self.is_ilu()
 
 
@@ -83,12 +94,14 @@ def get_writemask_name(value: int) -> str:
 
 
 class RegisterFile(enum.Enum):
-    PROGRAM_TEMPORARY = enum.auto()  # machine->Temporary[]
-    PROGRAM_INPUT = enum.auto()  # machine->Inputs[]
-    PROGRAM_OUTPUT = enum.auto()  # machine->Outputs[]
-    PROGRAM_ENV_PARAM = enum.auto()  # gl_program->Parameters[]
-    PROGRAM_ADDRESS = enum.auto()  # machine->AddressReg
-    PROGRAM_UNDEFINED = enum.auto()  # Invalid/TBD value
+    """Logical groupings of I/O registers."""
+
+    PROGRAM_TEMPORARY = enum.auto()  # r* registers
+    PROGRAM_INPUT = enum.auto()  # v* registers
+    PROGRAM_OUTPUT = enum.auto()  # o* registers
+    PROGRAM_ENV_PARAM = enum.auto()  # c* references
+    PROGRAM_ADDRESS = enum.auto()  # a0
+    PROGRAM_UNDEFINED = enum.auto()
 
 
 class SourceRegister:
@@ -109,10 +122,15 @@ class SourceRegister:
         self.negate = negate
 
     def set_negated(self):
+        """This register's value should be negated."""
         self.negate = True
 
     def __repr__(self):
-        return f"{type(self).__name__}({self.file} {self.index} {vsh_instruction.get_swizzle_name(self.swizzle)})"
+        return (
+            f"{type(self).__name__}({self.file} "
+            f"{self.index} "
+            f"{vsh_instruction.get_swizzle_name(self.swizzle)})"
+        )
 
 
 class DestinationRegister:
@@ -134,6 +152,7 @@ class DestinationRegister:
         return f"{type(self).__name__}({self.pretty_string()})"
 
     def pretty_string(self) -> str:
+        """Returns a pretty-printed string describing this destination register."""
         return f"{self.file} {self.index}{WRITEMASK_NAME[self.write_mask]}"
 
 
@@ -321,7 +340,7 @@ def _process_destination(
         elif ilu:
             vsh_ins.out_mux = OMUX_ILU
 
-        vsh_ins.out_orb = OUTPUT_C
+        vsh_ins.out_o_or_c = OUTPUT_C
         vsh_ins.out_address = dst_reg.index
         return
 
@@ -363,17 +382,17 @@ def _process_source(
             vsh_ins.set_temp_reg_field(i, reg.index)
         elif reg.file == RegisterFile.PROGRAM_ENV_PARAM:
             vsh_ins.set_mux_field(i, PARAM_C)
-            vsh_ins.const = reg.index
+            vsh_ins.const_reg = reg.index
         elif reg.file == RegisterFile.PROGRAM_INPUT:
             vsh_ins.set_mux_field(i, PARAM_V)
-            vsh_ins.v = reg.index
+            vsh_ins.input_reg = reg.index
         else:
             raise Exception(f"Unsupported register type [{i}]{reg}")
 
         if reg.negate:
             vsh_ins.set_negate_field(i, True)
 
-        vsh_ins.set_swizzle_field(i, reg.swizzle)
+        vsh_ins.set_swizzle_fields(i, reg.swizzle)
 
 
 def _process_instruction(ins: Instruction, vsh_ins: vsh_instruction.VshInstruction):

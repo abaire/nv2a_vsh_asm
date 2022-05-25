@@ -1,4 +1,9 @@
 """Tests for Vsh ANTLR parsing implementation."""
+
+# pylint: disable=missing-function-docstring
+# pylint: disable=too-many-public-methods
+# pylint: disable=wrong-import-order
+
 import pathlib
 import os
 import unittest
@@ -33,6 +38,12 @@ MOV oD0.xyzw, v3 // A comment should not break combining
 
 
 class VSHParserTestCase(unittest.TestCase):
+    """Tests for the vertex shader ANTLR parsing implementation."""
+
+    def __init__(self, methodName: str = ...) -> None:
+        super().__init__(methodName)
+        self._error_listener = None
+
     def _make_parser(self, input_text: str):
         lexer = VshLexer(antlr4.InputStream(input_text))
         stream = antlr4.CommonTokenStream(lexer)
@@ -83,7 +94,7 @@ class VSHParserTestCase(unittest.TestCase):
 
     def test_all(self):
         all_input = os.path.join(_RESOURCE_PATH, "all.vsh")
-        with open(all_input) as infile:
+        with open(all_input, encoding="utf-8") as infile:
             self._parse(infile.read())
         self.assertTrue(self._error_listener.ok)
 

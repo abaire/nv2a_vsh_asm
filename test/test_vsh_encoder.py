@@ -1,10 +1,21 @@
+"""Tests for vsh_encoder."""
+
+# pylint: disable=missing-function-docstring
+# pylint: disable=too-many-public-methods
+# pylint: disable=unused-wildcard-import
+# pylint: disable=wildcard-import
+# pylint: disable=wrong-import-order
+
 from typing import List
 import unittest
 
 from nv2a_vsh_asm.vsh_encoder import *
+from nv2a_vsh_asm.vsh_instruction import vsh_diff_instructions
 
 
 class VSHEncoderTestCase(unittest.TestCase):
+    """Tests for vsh_encoder."""
+
     def test_empty(self):
         results = encode([])
         self.assertEqual([], results)
@@ -83,8 +94,10 @@ class VSHEncoderTestCase(unittest.TestCase):
     #
     #     # MIN(R0,xyzw, R0.x, c[108].wzyx);
     #     dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 0, WRITEMASK_XYZW)
-    #     src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 0, make_swizzle(SWIZZLE_X))
-    #     src_b = SourceRegister(RegisterFile.PROGRAM_ENV_PARAM, 108 - 96, make_swizzle(SWIZZLE_W, SWIZZLE_Z, SWIZZLE_Y, SWIZZLE_X))
+    #     src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 0,
+    #                           make_swizzle(SWIZZLE_X))
+    #     src_b = SourceRegister(RegisterFile.PROGRAM_ENV_PARAM, 108 - 96,
+    #                         make_swizzle(SWIZZLE_W, SWIZZLE_Z, SWIZZLE_Y, SWIZZLE_X))
     #     program.append(Instruction(Opcode.OPCODE_MIN, dst, src_a, src_b))
     #
     #     results = encode(program)

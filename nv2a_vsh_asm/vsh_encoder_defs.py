@@ -24,6 +24,8 @@ OMUX_ILU = 1
 
 
 class ILU(enum.IntEnum):
+    """The operations that execute on the ILU."""
+
     ILU_NOP = 0
     ILU_MOV = 1
     ILU_RCP = 2
@@ -47,6 +49,8 @@ ILU_NAMES = {
 
 
 class MAC(enum.IntEnum):
+    """The operations that execute on the MAC."""
+
     MAC_NOP = 0
     MAC_MOV = 1
     MAC_MUL = 2
@@ -82,17 +86,20 @@ MAC_NAMES = {
 
 
 def make_swizzle(
-    a: int, b: Optional[int] = None, c: Optional[int] = None, d: Optional[int] = None
+    x_slot: int,
+    y_slot: Optional[int] = None,
+    z_slot: Optional[int] = None,
+    w_slot: Optional[int] = None,
 ) -> int:
     """Creates a swizzle mask from the given components."""
-    if b is None:
-        b = c = d = a
-    elif c is None:
-        c = d = b
-    elif d is None:
-        d = c
+    if y_slot is None:
+        y_slot = z_slot = w_slot = x_slot
+    elif z_slot is None:
+        z_slot = w_slot = y_slot
+    elif w_slot is None:
+        w_slot = z_slot
 
-    return ((a) << 0) | ((b) << 3) | ((c) << 6) | ((d) << 9)
+    return ((x_slot) << 0) | ((y_slot) << 3) | ((z_slot) << 6) | ((w_slot) << 9)
 
 
 SWIZZLE_XYZW = make_swizzle(SWIZZLE_X, SWIZZLE_Y, SWIZZLE_Z, SWIZZLE_W)

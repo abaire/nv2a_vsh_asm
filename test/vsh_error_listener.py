@@ -1,3 +1,10 @@
+"""Capturing ANTLR ErrorListener implementation."""
+
+# pylint: disable=invalid-name
+# pylint: disable=missing-function-docstring
+# pylint: disable=wrong-import-order
+# pylint: disable=too-many-arguments
+
 import collections
 from antlr4.error.ErrorListener import ErrorListener
 
@@ -10,8 +17,8 @@ class VshErrorListener(ErrorListener):
     def __init__(self):
         self.errors = []
 
-    def syntaxError(self, recognizer, symbol, line, column, message, e):
-        self.errors.append(VshError(message, symbol, line, column))
+    def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
+        self.errors.append(VshError(msg, offendingSymbol, line, column))
 
     @property
     def num_errors(self):

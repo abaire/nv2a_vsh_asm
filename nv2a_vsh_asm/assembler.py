@@ -38,13 +38,17 @@ class Assembler:
 
     @property
     def output(self) -> List[List[int]]:
+        """Retrieves the assembled list of machine code quadruplets."""
         return self._output
 
-    def get_c_output(self):
+    def get_c_output(self) -> str:
+        """Retrieves the assembled machine code as a C-like string."""
         lines = []
 
-        for (a, b, c, d), source in zip(self._output, self._pretty_sources):
+        for (int_0, int_1, int_2, int_3), source in zip(
+            self._output, self._pretty_sources
+        ):
             lines.append(f"/* {source} */")
-            lines.append(f"0x{a:08x}, 0x{b:08x}, 0x{c:08x}, 0x{d:08x},")
+            lines.append(f"0x{int_0:08x}, 0x{int_1:08x}, 0x{int_2:08x}, 0x{int_3:08x},")
 
         return "\n".join(lines)

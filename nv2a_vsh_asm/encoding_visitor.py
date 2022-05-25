@@ -1,4 +1,9 @@
 """Provides an ANTLR visitor that generates vsh instructions."""
+
+# pylint: disable=too-few-public-methods
+# pylint: disable=too-many-public-methods
+# pylint: disable=useless-return
+
 import re
 from typing import Optional
 
@@ -138,6 +143,7 @@ class _ConstantRegister:
 
     @property
     def type(self):
+        """Causes this instance to be treated as a special token type."""
         return _REG_CONSTANT
 
 
@@ -181,16 +187,16 @@ class EncodingVisitor(VshVisitor):
         operations = self.visitChildren(ctx)
         assert len(operations) == 2
 
-        a, a_src = operations[0]
-        b, b_src = operations[1]
-        a_ilu = a.opcode.is_ilu()
-        b_ilu = b.opcode.is_ilu()
+        op_a, a_src = operations[0]
+        op_b, b_src = operations[1]
+        a_ilu = op_a.opcode.is_ilu()
+        b_ilu = op_b.opcode.is_ilu()
 
         # Detect ILU mov instruction pairing (a mov + a MAC instruction implies ILU mov)
         if not (a_ilu or b_ilu):
-            if a.opcode == vsh_encoder.Opcode.OPCODE_MOV:
+            if op_a.opcode == vsh_encoder.Opcode.OPCODE_MOV:
                 a_ilu = True
-            if b.opcode == vsh_encoder.Opcode.OPCODE_MOV:
+            if op_b.opcode == vsh_encoder.Opcode.OPCODE_MOV:
                 b_ilu = True
 
         if a_ilu and b_ilu:
@@ -203,31 +209,28 @@ class EncodingVisitor(VshVisitor):
             )
 
         if a_ilu:
-            temp = a
-            a = b
-            b = temp
-            temp = a_src
-            a_src = b_src
-            b_src = temp
+            op_a, op_b = op_b, op_a
+            a_src, b_src = b_src, a_src
 
-        ilu_dst: vsh_encoder.DestinationRegister = b.dst_reg
-        mac_dst: vsh_encoder.DestinationRegister = a.dst_reg
+        ilu_dst: vsh_encoder.DestinationRegister = op_b.dst_reg
+        mac_dst: vsh_encoder.DestinationRegister = op_a.dst_reg
         if (
             mac_dst.file == vsh_encoder.RegisterFile.PROGRAM_TEMPORARY
             and mac_dst.index == 1
         ):
             print(
-                f"Warning: MAC instruction writing to R1 in MAC+ILU pairing at {ctx.start.line} will be ignored."
+                "Warning: MAC instruction writing to R1 in MAC+ILU pairing at "
+                f"{ctx.start.line} will be ignored."
             )
 
         return (
             vsh_encoder.Instruction(
-                a.opcode,
-                a.dst_reg,
-                a.src_reg[0],
-                a.src_reg[1],
-                b.src_reg[0],
-                b.opcode,
+                op_a.opcode,
+                op_a.dst_reg,
+                op_a.src_reg[0],
+                op_a.src_reg[1],
+                op_b.src_reg[0],
+                op_b.opcode,
                 ilu_dst,
             ),
             f"{a_src} + {b_src}",
@@ -489,7 +492,8 @@ class EncodingVisitor(VshVisitor):
 
         return _ConstantRegister(uniform.value + offset * 4)
 
-    def _process_destination_mask(self, mask):
+    @staticmethod
+    def _process_destination_mask(mask):
         if not mask:
             return vsh_encoder.WRITEMASK_XYZW
 
@@ -521,7 +525,8 @@ class EncodingVisitor(VshVisitor):
             f"Unsupported output target '{target.text}' at {target.line}:{target.column}"
         )
 
-    def _process_source_swizzle(self, swizzle):
+    @staticmethod
+    def _process_source_swizzle(swizzle):
         if not swizzle:
             return vsh_encoder.SWIZZLE_XYZW
 
@@ -566,7 +571,8 @@ class EncodingVisitor(VshVisitor):
         aggregate.append(nextResult)
         return aggregate
 
-    def _prettify_destination(self, register: vsh_encoder.DestinationRegister) -> str:
+    @staticmethod
+    def _prettify_destination(register: vsh_encoder.DestinationRegister) -> str:
         mask = vsh_encoder.get_writemask_name(register.write_mask)
 
         if register.file == vsh_encoder.RegisterFile.PROGRAM_TEMPORARY:
@@ -581,7 +587,8 @@ class EncodingVisitor(VshVisitor):
 
         raise Exception("TODO: Implement destination register prettification.")
 
-    def _prettify_source(self, register: vsh_encoder.SourceRegister) -> str:
+    @staticmethod
+    def _prettify_source(register: vsh_encoder.SourceRegister) -> str:
         swizzle = vsh_instruction.get_swizzle_name(register.swizzle)
         if swizzle == "xyzw":
             swizzle = ""

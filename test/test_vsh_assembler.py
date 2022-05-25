@@ -1,3 +1,9 @@
+"""End to end tests for the assembler."""
+
+# pylint: disable=missing-function-docstring
+# pylint: disable=too-many-public-methods
+# pylint: disable=wrong-import-order
+
 import pathlib
 import os
 import re
@@ -5,7 +11,7 @@ from typing import List
 import unittest
 
 from nv2a_vsh_asm.assembler import Assembler
-from nv2a_vsh_asm import vsh_encoder
+from nv2a_vsh_asm import vsh_instruction
 
 _RESOURCE_PATH = os.path.dirname(pathlib.Path(__file__).resolve())
 
@@ -14,13 +20,13 @@ _HEX_MATCH = r"0x[0-9a-fA-F]+"
 _EXPECTED_OUTPUT_RE = re.compile(
     r"^\s*//\s*\[\s*("
     + _HEX_MATCH
-    + "),\s*("
+    + r"),\s*("
     + _HEX_MATCH
-    + "),\s*("
+    + r"),\s*("
     + _HEX_MATCH
-    + "),\s*("
+    + r"),\s*("
     + _HEX_MATCH
-    + ")\s*]\s*$",
+    + r")\s*]\s*$",
     re.MULTILINE,
 )
 
@@ -42,6 +48,8 @@ def _extract_expected_instructions(source: str) -> List[List[int]]:
 
 
 class VSHAssemblerTestCase(unittest.TestCase):
+    """End to end tests for the assembler."""
+
     def test_empty(self):
         asm = Assembler("")
         asm.assemble()
@@ -249,7 +257,7 @@ class VSHAssemblerTestCase(unittest.TestCase):
         self.assertEqual([0, 0, 0, 1], results[-1])
 
     def _assert_vsh(self, expected: List[int], actual: List[int]):
-        diff = vsh_encoder.vsh_diff_instructions(expected, actual)
+        diff = vsh_instruction.vsh_diff_instructions(expected, actual)
         if diff:
             raise self.failureException(diff)
 

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+"""Assembles nv2a vertex shader machine code."""
+
 import argparse
 import logging
 import os
@@ -8,7 +10,7 @@ import sys
 import nv2a_vsh_asm
 
 
-def main(args):
+def _main(args):
     log_level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(level=log_level)
 
@@ -58,4 +60,4 @@ if __name__ == "__main__":
 
         return parser.parse_args()
 
-    exit(main(_parse_args()))
+    sys.exit(_main(_parse_args()))
