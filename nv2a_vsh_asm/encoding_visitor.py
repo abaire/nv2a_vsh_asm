@@ -242,6 +242,15 @@ class EncodingVisitor(VshVisitor):
             f"add {self._prettify_operands(operands)}",
         )
 
+    def visitOp_arl(self, ctx: VshParser.Op_arlContext):
+        operands = self.visitChildren(ctx)
+        assert len(operands) == 1
+        operands = operands[0]
+        return (
+            vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_ARL, *operands),
+            f"add {self._prettify_operands(operands)}",
+        )
+
     def visitOp_dp3(self, ctx: VshParser.Op_dp3Context):
         operands = self.visitChildren(ctx)
         assert len(operands) == 1
@@ -404,6 +413,13 @@ class EncodingVisitor(VshVisitor):
             f"sub {self._prettify_operands(operands)}",
         )
 
+    def visitP_a0_output(self, ctx: VshParser.P_a0_outputContext):
+        target = ctx.children[0].symbol
+        mask = None
+        if len(ctx.children) > 1:
+            mask = ctx.children[1].symbol
+        return self._process_output(target, mask)
+
     def visitP_output(self, ctx: VshParser.P_outputContext):
         target = ctx.children[0].symbol
         mask = None
@@ -494,6 +510,13 @@ class EncodingVisitor(VshVisitor):
                 vsh_encoder.RegisterFile.PROGRAM_OUTPUT, register, mask
             )
 
+        if target.type == VshLexer.REG_A0:
+            return vsh_encoder.DestinationRegister(
+                vsh_encoder.RegisterFile.PROGRAM_ADDRESS,
+                vsh_encoder.OutputRegisters.REG_A0,
+                mask,
+            )
+
         raise Exception(
             f"Unsupported output target '{target.text}' at {target.line}:{target.column}"
         )
@@ -553,7 +576,10 @@ class EncodingVisitor(VshVisitor):
         if register.file == vsh_encoder.RegisterFile.PROGRAM_TEMPORARY:
             return f"r{register.index}{mask}"
 
-        if register.file == vsh_encoder.RegisterFile.PROGRAM_OUTPUT:
+        if (
+            register.file == vsh_encoder.RegisterFile.PROGRAM_OUTPUT
+            or register.file == vsh_encoder.RegisterFile.PROGRAM_ADDRESS
+        ):
             name = vsh_encoder_defs.DESTINATION_REGISTER_TO_NAME_MAP[register.index]
             return f"{name}{mask}"
 
