@@ -35,189 +35,6 @@ from .vsh_encoder_defs import *
 from .vsh_instruction import vsh_diff_instructions
 
 
-class InputRegisters(enum.IntEnum):
-    """Defines the valid input registers for nv2a hardware."""
-
-    REG_POS = 0
-    V0 = 0
-    REG_WEIGHT = 1
-    V1 = 1
-    REG_NORMAL = 2
-    V2 = 2
-    REG_DIFFUSE = 3
-    V3 = 3
-    REG_SPECULAR = 4
-    V4 = 4
-    REG_FOG_COORD = 5
-    V5 = 5
-    REG_POINT_SIZE = 6
-    V6 = 6
-    REG_BACK_DIFFUSE = 7
-    V7 = 7
-    REG_BACK_SPECULAR = 8
-    V8 = 8
-    REG_TEX0 = 9
-    V9 = 9
-    REG_TEX1 = 10
-    V10 = 10
-    REG_TEX2 = 11
-    V11 = 11
-    REG_TEX3 = 12
-    V12 = 12
-    V13 = 13
-    V14 = 14
-    V15 = 15
-
-
-class OutputRegisters(enum.IntEnum):
-    """Defines the valid output registers for nv2a hardware."""
-
-    REG_POS = 0
-    # REG_WEIGHT = 1
-    # REG_NORMAL = 2
-    REG_DIFFUSE = 3
-    REG_SPECULAR = 4
-    REG_FOG_COORD = 5
-    REG_POINT_SIZE = 6
-    REG_BACK_DIFFUSE = 7
-    REG_BACK_SPECULAR = 8
-    REG_TEX0 = 9
-    REG_TEX1 = 10
-    REG_TEX2 = 11
-    REG_TEX3 = 12
-    # REG_13 = 13
-    # REG_14 = 14
-
-
-def make_swizzle(
-    a: int, b: Optional[int] = None, c: Optional[int] = None, d: Optional[int] = None
-) -> int:
-    """Creates a swizzle mask from the given components."""
-    if b is None:
-        b = c = d = a
-    elif c is None:
-        c = d = b
-    elif d is None:
-        d = c
-
-    return ((a) << 0) | ((b) << 3) | ((c) << 6) | ((d) << 9)
-
-
-_SWIZZLE_NAME = {
-    SWIZZLE_X: "x",
-    SWIZZLE_Y: "y",
-    SWIZZLE_Z: "z",
-    SWIZZLE_W: "w",
-}
-
-
-def get_swizzle_name(swizzle):
-    ret = ""
-    for i in range(4):
-        ret += _SWIZZLE_NAME[vsh_instruction.get_swizzle(swizzle, i)]
-    return ret
-
-
-SWIZZLE_XYZW = make_swizzle(SWIZZLE_X, SWIZZLE_Y, SWIZZLE_Z, SWIZZLE_W)
-SWIZZLE_XXXX = make_swizzle(SWIZZLE_X, SWIZZLE_X, SWIZZLE_X, SWIZZLE_X)
-SWIZZLE_YYYY = make_swizzle(SWIZZLE_Y, SWIZZLE_Y, SWIZZLE_Y, SWIZZLE_Y)
-SWIZZLE_ZZZZ = make_swizzle(SWIZZLE_Z, SWIZZLE_Z, SWIZZLE_Z, SWIZZLE_Z)
-SWIZZLE_WWWW = make_swizzle(SWIZZLE_W, SWIZZLE_W, SWIZZLE_W, SWIZZLE_W)
-
-WRITEMASK_X = 0x1
-WRITEMASK_Y = 0x2
-WRITEMASK_XY = 0x3
-WRITEMASK_Z = 0x4
-WRITEMASK_XZ = 0x5
-WRITEMASK_YZ = 0x6
-WRITEMASK_XYZ = 0x7
-WRITEMASK_W = 0x8
-WRITEMASK_XW = 0x9
-WRITEMASK_YW = 0xA
-WRITEMASK_XYW = 0xB
-WRITEMASK_ZW = 0xC
-WRITEMASK_XZW = 0xD
-WRITEMASK_YZW = 0xE
-WRITEMASK_XYZW = 0xF
-
-MASK_W = 1
-MASK_Z = 2
-MASK_ZW = 3
-MASK_Y = 4
-MASK_YW = 5
-MASK_YZ = 6
-MASK_YZW = 7
-MASK_X = 8
-MASK_XW = 9
-MASK_XZ = 10
-MASK_XZW = 11
-MASK_XY = 12
-MASK_XYW = 13
-MASK_XYZ = 14
-MASK_XYZW = 15
-
-_vsh_mask = {
-    WRITEMASK_X: MASK_X,
-    WRITEMASK_Y: MASK_Y,
-    WRITEMASK_XY: MASK_XY,
-    WRITEMASK_Z: MASK_Z,
-    WRITEMASK_XZ: MASK_XZ,
-    WRITEMASK_YZ: MASK_YZ,
-    WRITEMASK_XYZ: MASK_XYZ,
-    WRITEMASK_W: MASK_W,
-    WRITEMASK_XW: MASK_XW,
-    WRITEMASK_YW: MASK_YW,
-    WRITEMASK_XYW: MASK_XYW,
-    WRITEMASK_ZW: MASK_ZW,
-    WRITEMASK_XZW: MASK_XZW,
-    WRITEMASK_YZW: MASK_YZW,
-    WRITEMASK_XYZW: MASK_XYZW,
-}
-
-_WRITEMASK_NAME = {
-    WRITEMASK_X: ".x",
-    WRITEMASK_Y: ".y",
-    WRITEMASK_XY: ".xy",
-    WRITEMASK_Z: ".z",
-    WRITEMASK_XZ: ".xz",
-    WRITEMASK_YZ: ".yz",
-    WRITEMASK_XYZ: ".xyz",
-    WRITEMASK_W: ".w",
-    WRITEMASK_XW: ".xw",
-    WRITEMASK_YW: ".yw",
-    WRITEMASK_XYW: ".xyw",
-    WRITEMASK_ZW: ".zw",
-    WRITEMASK_XZW: ".xzw",
-    WRITEMASK_YZW: ".yzw",
-    WRITEMASK_XYZW: "",
-}
-
-
-def get_writemask_name(value: int) -> str:
-    """Returns a pretty printed string for the given write mask."""
-    return _WRITEMASK_NAME[value]
-
-
-COND_GT = 1  # greater than zero
-COND_EQ = 2  # equal to zero
-COND_LT = 3  # less than zero
-COND_UN = 4  # unordered (NaN)
-COND_GE = 5  # greater than or equal to zero
-COND_LE = 6  # less than or equal to zero
-COND_NE = 7  # not equal to zero
-COND_TR = 8  # always True
-COND_FL = 9  # always false
-
-FLOAT32 = 0x1
-FLOAT16 = 0x2
-FIXED12 = 0x4
-
-SATURATE_OFF = 0
-SATURATE_ZERO_ONE = 1
-
-INST_INDEX_BITS = 12
-
-
 class Opcode(enum.Enum):
     OPCODE_NOP = enum.auto()
     OPCODE_ADD = enum.auto()
@@ -258,6 +75,11 @@ class Opcode(enum.Enum):
 
     def is_mac(self) -> bool:
         return not self.is_ilu()
+
+
+def get_writemask_name(value: int) -> str:
+    """Returns a pretty printed string for the given write mask."""
+    return WRITEMASK_NAME[value]
 
 
 class RegisterFile(enum.Enum):
@@ -312,7 +134,7 @@ class DestinationRegister:
         return f"{type(self).__name__}({self.pretty_string()})"
 
     def pretty_string(self) -> str:
-        return f"{self.file} {self.index}{_WRITEMASK_NAME[self.write_mask]}"
+        return f"{self.file} {self.index}{WRITEMASK_NAME[self.write_mask]}"
 
 
 class Instruction:
@@ -473,13 +295,13 @@ def _process_destination(
     if dst_reg.file == RegisterFile.PROGRAM_TEMPORARY:
         vsh_ins.out_temp_reg = dst_reg.index
         if mac:
-            vsh_ins.out_mac_mask = _vsh_mask[dst_reg.write_mask]
+            vsh_ins.out_mac_mask = VSH_MASK[dst_reg.write_mask]
         elif ilu:
-            vsh_ins.out_ilu_mask = _vsh_mask[dst_reg.write_mask]
+            vsh_ins.out_ilu_mask = VSH_MASK[dst_reg.write_mask]
         return
 
     if dst_reg.file == RegisterFile.PROGRAM_OUTPUT:
-        vsh_ins.out_o_mask = _vsh_mask[dst_reg.write_mask]
+        vsh_ins.out_o_mask = VSH_MASK[dst_reg.write_mask]
         if mac:
             vsh_ins.out_mux = OMUX_MAC
         elif ilu:
@@ -489,7 +311,7 @@ def _process_destination(
         return
 
     if dst_reg.file == RegisterFile.PROGRAM_ENV_PARAM:
-        vsh_ins.out_o_mask = _vsh_mask[dst_reg.write_mask]
+        vsh_ins.out_o_mask = VSH_MASK[dst_reg.write_mask]
         if mac:
             vsh_ins.out_mux = OMUX_MAC
         elif ilu:

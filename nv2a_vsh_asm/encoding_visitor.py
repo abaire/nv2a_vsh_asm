@@ -7,6 +7,8 @@ from build.grammar.VshParser import VshParser
 from build.grammar.VshVisitor import VshVisitor
 
 from . import vsh_encoder
+from . import vsh_encoder_defs
+from . import vsh_instruction
 
 _DESTINATION_MASK_LOOKUP = {
     ".x": vsh_encoder.WRITEMASK_X,
@@ -46,20 +48,6 @@ _NAME_TO_DESTINATION_REGISTER_MAP = {
     "oT2": vsh_encoder.OutputRegisters.REG_TEX2,
     "oTex3": vsh_encoder.OutputRegisters.REG_TEX3,
     "oT3": vsh_encoder.OutputRegisters.REG_TEX3,
-}
-
-_DESTINATION_REGISTER_TO_NAME_MAP = {
-    vsh_encoder.OutputRegisters.REG_POS: "oPos",
-    vsh_encoder.OutputRegisters.REG_DIFFUSE: "oDiffuse",
-    vsh_encoder.OutputRegisters.REG_SPECULAR: "oSpecular",
-    vsh_encoder.OutputRegisters.REG_FOG_COORD: "oFog",
-    vsh_encoder.OutputRegisters.REG_POINT_SIZE: "oPts",
-    vsh_encoder.OutputRegisters.REG_BACK_DIFFUSE: "oBackDiffuse",
-    vsh_encoder.OutputRegisters.REG_BACK_SPECULAR: "oBackSpecular",
-    vsh_encoder.OutputRegisters.REG_TEX0: "oTex0",
-    vsh_encoder.OutputRegisters.REG_TEX1: "oTex1",
-    vsh_encoder.OutputRegisters.REG_TEX2: "oTex2",
-    vsh_encoder.OutputRegisters.REG_TEX3: "oTex3",
 }
 
 _SWIZZLE_LOOKUP = {
@@ -566,13 +554,13 @@ class EncodingVisitor(VshVisitor):
             return f"r{register.index}{mask}"
 
         if register.file == vsh_encoder.RegisterFile.PROGRAM_OUTPUT:
-            name = _DESTINATION_REGISTER_TO_NAME_MAP[register.index]
+            name = vsh_encoder_defs.DESTINATION_REGISTER_TO_NAME_MAP[register.index]
             return f"{name}{mask}"
 
         raise Exception("TODO: Implement destination register prettification.")
 
     def _prettify_source(self, register: vsh_encoder.SourceRegister) -> str:
-        swizzle = vsh_encoder.get_swizzle_name(register.swizzle)
+        swizzle = vsh_instruction.get_swizzle_name(register.swizzle)
         if swizzle == "xyzw":
             swizzle = ""
         else:

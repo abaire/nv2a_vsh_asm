@@ -1,8 +1,9 @@
 """Provides functionality for manipulating nv2a vertex shader machine code."""
 import ctypes
+import itertools
 import struct
 import sys
-from typing import List
+from typing import List, Tuple
 
 from .vsh_encoder_defs import *
 
@@ -65,6 +66,51 @@ def get_swizzle(swz: int, idx: int) -> int:
     return ((swz) >> ((idx) * 3)) & 0x7
 
 
+_VSH_MASK_TO_WRITEMASK = {
+    MASK_X: WRITEMASK_X,
+    MASK_Y: WRITEMASK_Y,
+    MASK_XY: WRITEMASK_XY,
+    MASK_Z: WRITEMASK_Z,
+    MASK_XZ: WRITEMASK_XZ,
+    MASK_YZ: WRITEMASK_YZ,
+    MASK_XYZ: WRITEMASK_XYZ,
+    MASK_W: WRITEMASK_W,
+    MASK_XW: WRITEMASK_XW,
+    MASK_YW: WRITEMASK_YW,
+    MASK_XYW: WRITEMASK_XYW,
+    MASK_ZW: WRITEMASK_ZW,
+    MASK_XZW: WRITEMASK_XZW,
+    MASK_YZW: WRITEMASK_YZW,
+    MASK_XYZW: WRITEMASK_XYZW,
+}
+
+_SWIZZLE_NAME = {
+    SWIZZLE_X: "x",
+    SWIZZLE_Y: "y",
+    SWIZZLE_Z: "z",
+    SWIZZLE_W: "w",
+}
+
+
+def _make_swizzle_name(x: int, y: int, z: int, w: int, suppress_nop=False) -> str:
+    # Drop any repeated elements at the end of the list.
+    components = [group[0] for group in itertools.groupby([x, y, z, w])]
+
+    ret = "".join([_SWIZZLE_NAME[i] for i in components])
+
+    if suppress_nop and ret == "xyzw":
+        return ""
+    return ret
+
+
+def get_swizzle_name(swizzle: int) -> str:
+    """Returns the textual name for the given swizzle."""
+    ret = ""
+    for i in range(4):
+        ret += _SWIZZLE_NAME[get_swizzle(swizzle, i)]
+    return ret
+
+
 class VshInstruction:
     """Models nv2a vertex shader machine code."""
 
@@ -108,6 +154,15 @@ class VshInstruction:
         self._c = _C.from_buffer_copy(zero)
         self._d = _D.from_buffer_copy(zero)
         self.final = True
+
+    def set_values(self, values: List[int]):
+        """Sets the raw values for this instruction."""
+        assert len(values) == 4
+        assert values[0] == 0
+
+        self._b = _B.from_buffer_copy(values[1].to_bytes(4, byteorder=sys.byteorder))
+        self._c = _C.from_buffer_copy(values[2].to_bytes(4, byteorder=sys.byteorder))
+        self._d = _D.from_buffer_copy(values[3].to_bytes(4, byteorder=sys.byteorder))
 
     @property
     def a_swizzle_w(self) -> int:
@@ -188,7 +243,9 @@ class VshInstruction:
 
     @property
     def c_temp_reg(self) -> int:
-        return (self.c_temp_reg_high & 0x03) << 2 + (self.c_temp_reg_low & 0x03)
+        ret = (self.c_temp_reg_high & 0x03) << 2
+        ret += self.c_temp_reg_low & 0x03
+        return ret
 
     @c_temp_reg.setter
     def c_temp_reg(self, val: int):
@@ -366,6 +423,9 @@ class VshInstruction:
     def out_orb(self) -> bool:
         return bool(self._d.OUT_ORB)
 
+    # TODO: Rename to ...o_or_c?
+    # This switches output address being treated as an output register or a constant
+    # OUTPUT_O or OUTPUT_C
     @out_orb.setter
     def out_orb(self, val: bool):
         if val:
@@ -477,6 +537,175 @@ class VshInstruction:
             self.c_swizzle_w = get_swizzle(swizzle, 3)
         else:
             raise Exception(f"Invalid field index {i}")
+
+    def _dissasemble_inputs(self) -> List[str]:
+        def _process(mux, negate, temp_reg, x, y, z, w):
+            if mux == PARAM_R:
+                ret = f"R{temp_reg}"
+            elif mux == PARAM_C:
+                ret = f"c[{self.const}]"
+            elif mux == PARAM_V:
+                ret = f"v{self.v}"
+            else:
+                raise Exception(f"Unknown mux code {mux}")
+            if negate:
+                ret = f"-{ret}"
+
+            swizzle = _make_swizzle_name(x, y, z, w, True)
+            if swizzle:
+                ret += f".{swizzle}"
+            return ret
+
+        src_a = _process(
+            self.a_mux,
+            self.a_negate,
+            self.a_temp_reg,
+            self.a_swizzle_x,
+            self.a_swizzle_y,
+            self.a_swizzle_z,
+            self.a_swizzle_w,
+        )
+        src_b = _process(
+            self.b_mux,
+            self.b_negate,
+            self.b_temp_reg,
+            self.b_swizzle_x,
+            self.b_swizzle_y,
+            self.b_swizzle_z,
+            self.b_swizzle_w,
+        )
+        src_c = _process(
+            self.c_mux,
+            self.c_negate,
+            self.c_temp_reg,
+            self.c_swizzle_x,
+            self.c_swizzle_y,
+            self.c_swizzle_z,
+            self.c_swizzle_w,
+        )
+
+        return [src_a, src_b, src_c]
+
+    def _disassemble_outputs(self) -> Tuple[str, str]:
+        """Returns a pair of destination strings for (mac, ilu)."""
+
+        mac_temp_destination = ""
+        ilu_temp_destination = ""
+        dst_temp_reg_name = f"R{self.out_temp_reg}"
+        if self.out_mac_mask:
+            mac_output_mask = WRITEMASK_NAME[_VSH_MASK_TO_WRITEMASK[self.out_mac_mask]]
+            if not mac_output_mask:
+                mac_output_mask = ".xyzw"
+            mac_temp_destination = f"{dst_temp_reg_name}{mac_output_mask}"
+
+        if self.out_ilu_mask:
+            ilu_output_mask = WRITEMASK_NAME[_VSH_MASK_TO_WRITEMASK[self.out_ilu_mask]]
+            if not ilu_output_mask:
+                ilu_output_mask = ".xyzw"
+
+            # If both MAC and ILU are writing to temp outputs, ILU must write to R1.
+            if mac_temp_destination:
+                ilu_temp_destination = f"R1{ilu_output_mask}"
+            else:
+                ilu_temp_destination = f"{dst_temp_reg_name}{ilu_output_mask}"
+
+        out_destination = ""
+        if self.out_o_mask:
+            dst_output_mask = WRITEMASK_NAME[_VSH_MASK_TO_WRITEMASK[self.out_o_mask]]
+            if not dst_output_mask:
+                dst_output_mask = ".xyzw"
+            dst_output_index = self.out_address
+
+            if self.out_orb == OUTPUT_O:
+                dst_output_name = DESTINATION_REGISTER_TO_NAME_MAP_SHORT[
+                    dst_output_index
+                ]
+            else:
+                dst_output_name = f"c[{dst_output_index}]"
+
+            out_destination = f"{dst_output_name}{dst_output_mask}"
+
+        mac = mac_temp_destination
+        ilu = ilu_temp_destination
+
+        # It should not be possible to flag both temp outputs and a destination reg.
+        assert not (mac and ilu and out_destination)
+
+        if not out_destination:
+            return mac, ilu
+
+        if mac:
+            return mac, out_destination
+        return out_destination, ilu
+
+    def _disassemble_operands(self) -> Tuple[str, str]:
+        """Returns a pair of operands for (mac, ilu)."""
+        mac = ""
+        ilu = ""
+        if self.mac:
+            mac = MAC_NAMES[self.mac]
+        if self.ilu:
+            ilu = ILU_NAMES[self.ilu]
+        return mac, ilu
+
+    def _filter_mac_inputs(self, inputs) -> List[str]:
+        if self.mac == MAC.MAC_MOV or self.mac == MAC.MAC_ARL:
+            mac_inputs = [inputs[0]]
+        elif (
+            self.mac == MAC.MAC_MUL
+            or self.mac == MAC.MAC_DP3
+            or self.mac == MAC.MAC_DP4
+            or self.mac == MAC.MAC_DPH
+            or self.mac == MAC.MAC_DST
+            or self.mac == MAC.MAC_MIN
+            or self.mac == MAC.MAC_MAX
+            or self.mac == MAC.MAC_SGE
+            or self.mac == MAC.MAC_SLT
+        ):
+            mac_inputs = [inputs[0], inputs[1]]
+        elif self.mac == MAC.MAC_ADD:
+            mac_inputs = [inputs[0], inputs[2]]
+        elif self.mac == MAC.MAC_MAD:
+            mac_inputs = inputs
+        else:
+            raise Exception(f"Unsupported MAC operand {self.mac}")
+        return mac_inputs
+
+    def disassemble(self, trim_nop_writemask=False) -> str:
+        mac, ilu = self._disassemble_operands()
+        mac_output, ilu_output = self._disassemble_outputs()
+        inputs = self._dissasemble_inputs()
+
+        ret = []
+        if mac:
+            mac += f" {mac_output}, "
+            ret.append(mac + ", ".join(self._filter_mac_inputs(inputs)))
+
+        if ilu:
+            ilu += f" {ilu_output}, {inputs[2]}"
+            ret.append(ilu)
+
+        return " + ".join(ret)
+
+    def explain(self) -> str:
+        """Returns a verbose description of this instruction's fields."""
+
+        values = []
+
+        for f in _B._fields_:
+            val = getattr(self._b, f[0])
+            name = f[0]
+            values.append(f"{name}: 0x{val:x} ({val:0{f[2]}b})")
+        for f in _C._fields_:
+            val = getattr(self._c, f[0])
+            name = f[0]
+            values.append(f"{name}: 0x{val:x} ({val:0{f[2]}b})")
+        for f in _D._fields_:
+            val = getattr(self._d, f[0])
+            name = f[0]
+            values.append(f"{name}: 0x{val:x} ({val:0{f[2]}b})")
+
+        return f"{self.encode()}:\n\t" + "\n\t".join(values)
 
 
 def vsh_diff_instructions(
