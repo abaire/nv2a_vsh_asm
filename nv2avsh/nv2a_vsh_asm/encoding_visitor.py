@@ -7,9 +7,9 @@
 import re
 from typing import Optional
 
-from build.grammar.VshLexer import VshLexer
-from build.grammar.VshParser import VshParser
-from build.grammar.VshVisitor import VshVisitor
+from nv2avsh.grammar.vsh.VshLexer import VshLexer
+from nv2avsh.grammar.vsh.VshParser import VshParser
+from nv2avsh.grammar.vsh.VshVisitor import VshVisitor
 
 from . import vsh_encoder
 from . import vsh_encoder_defs

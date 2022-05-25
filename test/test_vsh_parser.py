@@ -9,9 +9,9 @@ import os
 import unittest
 
 import antlr4
-from build.grammar.VshLexer import VshLexer
-from build.grammar.VshParser import VshParser
-from build.grammar.VshListener import VshListener
+from nv2avsh.grammar.vsh.VshLexer import VshLexer
+from nv2avsh.grammar.vsh.VshParser import VshParser
+from nv2avsh.grammar.vsh.VshListener import VshListener
 from test.vsh_error_listener import VshErrorListener
 
 _RESOURCE_PATH = os.path.dirname(pathlib.Path(__file__).resolve())

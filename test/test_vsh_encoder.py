@@ -9,8 +9,8 @@
 from typing import List
 import unittest
 
-from nv2a_vsh_asm.vsh_encoder import *
-from nv2a_vsh_asm.vsh_instruction import vsh_diff_instructions
+from nv2avsh.nv2a_vsh_asm.vsh_encoder import *
+from nv2avsh.nv2a_vsh_asm.vsh_instruction import vsh_diff_instructions
 
 
 class VSHEncoderTestCase(unittest.TestCase):

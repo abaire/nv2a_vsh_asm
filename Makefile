@@ -1,5 +1,5 @@
 UNAME_S := $(shell uname -s)
-GRAMMAR_OUT := build
+GRAMMAR_OUT := nv2avsh/grammar/vsh
 
 ifeq ($(UNAME_S),Linux)
 ANTLR = antlr4
@@ -11,16 +11,20 @@ endif
 .PHONY: all
 all: $(GRAMMAR_OUT)/VshParser.py
 
-$(GRAMMAR_OUT)/VshParser.py: grammar/Vsh.g4
-	$(ANTLR) -Dlanguage=Python3 $< -o $(GRAMMAR_OUT) -visitor
+.PHONY: install
+install:
+	python setup.py antlr install
+
+$(GRAMMAR_OUT)/VshParser.py: nv2avsh/grammar/Vsh.g4
+	python setup.py antlr build
 
 .PHONY: clean
 clean:
-	rm -f $(GRAMMAR_OUT)/grammar/Vsh.interp \
-		$(GRAMMAR_OUT)/grammar/Vsh.tokens \
-		$(GRAMMAR_OUT)/grammar/VshLexer.interp \
-		$(GRAMMAR_OUT)/grammar/VshLexer.py \
-		$(GRAMMAR_OUT)/grammar/VshLexer.tokens \
-		$(GRAMMAR_OUT)/grammar/VshListener.py \
-		$(GRAMMAR_OUT)/grammar/VshParser.py \
-		$(GRAMMAR_OUT)/grammar/VshVisitor.py
+	rm -f $(GRAMMAR_OUT)/Vsh.interp \
+		$(GRAMMAR_OUT)/Vsh.tokens \
+		$(GRAMMAR_OUT)/VshLexer.interp \
+		$(GRAMMAR_OUT)/VshLexer.py \
+		$(GRAMMAR_OUT)/VshLexer.tokens \
+		$(GRAMMAR_OUT)/VshListener.py \
+		$(GRAMMAR_OUT)/VshParser.py \
+		$(GRAMMAR_OUT)/VshVisitor.py
