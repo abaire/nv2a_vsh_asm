@@ -206,6 +206,17 @@ class VSHAssemblerTestCase(unittest.TestCase):
         self.assertEqual(len(results), 2)
         self._assert_vsh([0x00000000, 0x0240081B, 0x1436186C, 0x2F20F824], results[0])
 
+    def test_arl(self):
+        asm = Assembler("ARL A0, R0.x")
+        asm.assemble()
+        results = asm.output
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x01A00000, 0x0436106C, 0x20700FF8], results[0])
+        # Ambiguous result, it looks like some compilers null out unused fields
+        # differently.
+        # self._assert_vsh([0x00000000, 0x01A00000, 0x04001000, 0x20000000], results[0])
+
     def test_simple(self):
         all_input = os.path.join(_RESOURCE_PATH, "simple.vsh")
         with open(all_input) as infile:

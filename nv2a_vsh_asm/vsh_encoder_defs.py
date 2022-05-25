@@ -223,6 +223,8 @@ class OutputRegisters(enum.IntEnum):
     # REG_13 = 13
     # REG_14 = 14
 
+    REG_A0 = 9999
+
 
 DESTINATION_REGISTER_TO_NAME_MAP = {
     OutputRegisters.REG_POS: "oPos",
@@ -236,6 +238,7 @@ DESTINATION_REGISTER_TO_NAME_MAP = {
     OutputRegisters.REG_TEX1: "oTex1",
     OutputRegisters.REG_TEX2: "oTex2",
     OutputRegisters.REG_TEX3: "oTex3",
+    OutputRegisters.REG_A0: "A0",
 }
 
 DESTINATION_REGISTER_TO_NAME_MAP_SHORT = {
@@ -250,4 +253,5 @@ DESTINATION_REGISTER_TO_NAME_MAP_SHORT = {
     OutputRegisters.REG_TEX1: "oT1",
     OutputRegisters.REG_TEX2: "oT2",
     OutputRegisters.REG_TEX3: "oT3",
+    OutputRegisters.REG_A0: "A0",
 }

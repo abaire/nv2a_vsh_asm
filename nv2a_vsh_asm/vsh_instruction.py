@@ -628,6 +628,10 @@ class VshInstruction:
         mac = mac_temp_destination
         ilu = ilu_temp_destination
 
+        # ARL implicitly writes to A0 and implicitly uses an "x" write mask.
+        if self.mac == self.mac == MAC.MAC_ARL:
+            mac = f"{DESTINATION_REGISTER_TO_NAME_MAP_SHORT[OutputRegisters.REG_A0]}"
+
         # It should not be possible to flag both temp outputs and a destination reg.
         assert not (mac and ilu and out_destination)
 

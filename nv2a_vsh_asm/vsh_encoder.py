@@ -112,7 +112,7 @@ class SourceRegister:
         self.negate = True
 
     def __repr__(self):
-        return f"{type(self).__name__}({self.file} {self.index} {get_swizzle_name(self.swizzle)})"
+        return f"{type(self).__name__}({self.file} {self.index} {vsh_instruction.get_swizzle_name(self.swizzle)})"
 
 
 class DestinationRegister:
@@ -189,6 +189,10 @@ def _process_opcode(
 
         elif opcode == Opcode.OPCODE_ADD:
             out.mac = MAC.MAC_ADD
+            mac = True
+
+        elif opcode == Opcode.OPCODE_ARL:
+            out.mac = MAC.MAC_ARL
             mac = True
 
         elif opcode == Opcode.OPCODE_SUB:
@@ -319,6 +323,13 @@ def _process_destination(
 
         vsh_ins.out_orb = OUTPUT_C
         vsh_ins.out_address = dst_reg.index
+        return
+
+    if dst_reg.file == RegisterFile.PROGRAM_ADDRESS:
+        # ARL is the only instruction that can write to A0 and it is MAC-only.
+        assert mac
+
+        # The destination is implied by the ARL operand, so nothing needs to be set.
         return
 
     raise Exception("Unsupported destination target.")

@@ -15,6 +15,7 @@ combined_operation :
 
 operation :
     op_add
+    | op_arl
     | op_dp3
     | op_dp4
     | op_dph
@@ -36,6 +37,7 @@ operation :
     ;
 
 op_add : OP_ADD p_out_in_in ;
+op_arl : OP_ARL p_a0_in ;
 op_dp3 : OP_DP3 p_out_in_in ;
 op_dp4 : OP_DP4 p_out_in_in ;
 op_dph : OP_DPH p_out_in_in ;
@@ -55,6 +57,7 @@ op_sge : OP_SGE p_out_in_in ;
 op_slt : OP_SLT p_out_in_in ;
 op_sub : OP_SUB p_out_in_in ;
 
+p_a0_in : p_a0_output SEP p_input ;
 p_out_in : p_output SEP p_input ;
 p_out_in_in : p_output SEP p_input SEP p_input ;
 p_out_in_in_in : p_output SEP p_input SEP p_input SEP p_input ;
@@ -70,7 +73,7 @@ uniform_const :
     UNIFORM_IDENTIFIER ('[' WHITESPACE* INTEGER WHITESPACE* ']')?
     ;
 
-// TODO: Support writing to A0 (ARL instruction only)
+p_a0_output: REG_A0 DESTINATION_MASK? ;
 p_output : (REG_Rx | REG_OUTPUT) DESTINATION_MASK? ;
 // Input swizzling is more permissive than destination masks, but the matching is
 // overlapping so both tokens are accepted.
@@ -179,7 +182,7 @@ REG_OUTPUT :
 
 // General purpose registers
 REG_Rx : [rR] ([0-9] | '1'[0-1]) ;
-REG_A0 : [aA]'0.x' ;
+REG_A0 : [aA]'0' ;
 
 // Define constants
 DEF : ('DEF' | 'def') FLOAT ;

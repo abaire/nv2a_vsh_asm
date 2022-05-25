@@ -69,8 +69,9 @@ class DisassemblerTestCase(unittest.TestCase):
             [0x00000000, 0x0420061B, 0x083613FC, 0x5011F818],
         )
 
+        _test("ARL A0, R0.x", [0x00000000, 0x01A00000, 0x0436106C, 0x20700FF8])
+
         # _test("ADD R0.xy, c[A0+121].zw, -c[A0+121].xy",  [0x00000000, 0x006F20BF, 0x9C001456, 0x7C000002])
-        # _test("ARL A0, R0.x",  [0x00000000, 0x01A00000, 0x04001000, 0x20000000])
 
 
 if __name__ == "__main__":
