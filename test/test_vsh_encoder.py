@@ -373,7 +373,9 @@ class VSHEncoderTestCase(unittest.TestCase):
         results = encode(program)
         self._assert_final_marker(results)
         self.assertEqual(len(results), 2)
-        self._assert_vsh([0x00000000, 0x008EA0AA, 0x0554BFFD, 0x72000000], results[0])
+        self._assert_vsh([0x00000000, 0x008EA0AA, 0x05541FFC, 0x32000FF8], results[0])
+        # xemu decompiles this to the same isntruction
+        # self._assert_vsh([0x00000000, 0x008EA0AA, 0x0554BFFD, 0x72000000], results[0])
 
     def test_mac_arl_ilu_mov(self):
         # ARL A0, R2
