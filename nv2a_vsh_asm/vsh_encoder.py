@@ -99,7 +99,7 @@ class SourceRegister:
         file: RegisterFile,
         index: int = 0,
         swizzle: int = SWIZZLE_XYZW,
-        rel_addr: int = 0,
+        rel_addr: bool = False,
         negate: bool = False,
     ):
         self.file = file
@@ -355,8 +355,8 @@ def _process_source(
         if not reg:
             continue
 
-        # TODO: A0 rel
-        assert not reg.rel_addr
+        if reg.rel_addr:
+            vsh_ins.a0x = True
 
         if reg.file == RegisterFile.PROGRAM_TEMPORARY:
             vsh_ins.set_mux_field(i, PARAM_R)

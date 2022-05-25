@@ -142,29 +142,29 @@ class VSHAssemblerTestCase(unittest.TestCase):
     #     self.assertEqual(len(results), 2)
     #     self._assert_vsh([0x00000000, 0x008C0015, 0x05FE1EA8, 0x3090C800], results[0])
 
-    # def test_relative_const(self):
-    #     asm = Assembler("MUL R3.xyzw, v6.x, c[A0+60]")
-    #     asm.assemble()
-    #     results = asm.output
-    #     self._assert_final_marker(results)
-    #     self.assertEqual(len(results), 2)
-    #     self._assert_vsh([0x00000000, 0x00478C00, 0x0836186C, 0x2F300FFA], results[0])
-    #
-    # def test_relative_const_spaced(self):
-    #     asm = Assembler("MUL R3.xyzw, v6.x, c[ A0   + 60 ]")
-    #     asm.assemble()
-    #     results = asm.output
-    #     self._assert_final_marker(results)
-    #     self.assertEqual(len(results), 2)
-    #     self._assert_vsh([0x00000000, 0x00478C00, 0x0836186C, 0x2F300FFA], results[0])
-    #
-    # def test_relative_const_spaced_a_second(self):
-    #     asm = Assembler("MUL R3.xyzw, v6.x, c[ 60 + A0 ]")
-    #     asm.assemble()
-    #     results = asm.output
-    #     self._assert_final_marker(results)
-    #     self.assertEqual(len(results), 2)
-    #     self._assert_vsh([0x00000000, 0x00478C00, 0x0836186C, 0x2F300FFA], results[0])
+    def test_relative_const(self):
+        asm = Assembler("MUL R3.xyzw, v6.x, c[A0+60]")
+        asm.assemble()
+        results = asm.output
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x00478C00, 0x0836186C, 0x2F300FFA], results[0])
+
+    def test_relative_const_spaced(self):
+        asm = Assembler("MUL R3.xyzw, v6.x, c[ A0   + 60 ]")
+        asm.assemble()
+        results = asm.output
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x00478C00, 0x0836186C, 0x2F300FFA], results[0])
+
+    def test_relative_const_spaced_a_second(self):
+        asm = Assembler("MUL R3.xyzw, v6.x, c[ 60 + A0 ]")
+        asm.assemble()
+        results = asm.output
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x00478C00, 0x0836186C, 0x2F300FFA], results[0])
 
     def test_uniform_vector_bare(self):
         asm = Assembler("#test_vector vector 15\n" "DPH oT0.x, v4, #test_vector")

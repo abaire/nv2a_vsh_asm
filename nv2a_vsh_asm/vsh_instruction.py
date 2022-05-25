@@ -543,7 +543,10 @@ class VshInstruction:
             if mux == PARAM_R:
                 ret = f"R{temp_reg}"
             elif mux == PARAM_C:
-                ret = f"c[{self.const}]"
+                offset = f"{self.const}"
+                if self.a0x:
+                    offset = f"A0+{offset}"
+                ret = f"c[{offset}]"
             elif mux == PARAM_V:
                 ret = f"v{self.v}"
             else:
@@ -709,7 +712,8 @@ class VshInstruction:
             name = f[0]
             values.append(f"{name}: 0x{val:x} ({val:0{f[2]}b})")
 
-        return f"{self.encode()}:\n\t" + "\n\t".join(values)
+        pretty_raw_values = ", ".join([f"0x{val:08X}" for val in self.encode()])
+        return f"{pretty_raw_values}:\n\t" + "\n\t".join(values)
 
 
 def vsh_diff_instructions(
@@ -778,3 +782,10 @@ def vsh_diff_instructions(
         + "\n\t".join(differences)
         + "\n"
     )
+
+
+def explain(values: List[int]) -> str:
+    """Returns a textual description of the given machine code quadruplet."""
+    vsh = VshInstruction(True)
+    vsh.set_values([0x00000000, 0x006F20BF, 0x9C001456, 0x7C000002])
+    return vsh.explain()

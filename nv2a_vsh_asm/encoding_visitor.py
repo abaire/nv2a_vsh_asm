@@ -547,14 +547,10 @@ class EncodingVisitor(VshVisitor):
 
         if source.type == _REG_CONSTANT:
             return vsh_encoder.SourceRegister(
-                vsh_encoder.RegisterFile.PROGRAM_ENV_PARAM, source.index, swizzle
-            )
-
-        if source.type == VshLexer.REG_A0:
-            return vsh_encoder.SourceRegister(
-                vsh_encoder.RegisterFile.PROGRAM_ADDRESS,
-                0,
-                vsh_encoder.make_swizzle(vsh_encoder.SWIZZLE_X),
+                vsh_encoder.RegisterFile.PROGRAM_ENV_PARAM,
+                source.index,
+                swizzle,
+                source.is_relative,
             )
 
         raise Exception(
