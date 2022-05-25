@@ -1,5 +1,6 @@
 """Provides an ANTLR visitor that generates vsh instructions."""
 import re
+from typing import Optional
 
 from build.grammar.VshLexer import VshLexer
 from build.grammar.VshParser import VshParser
@@ -125,22 +126,62 @@ _RELATIVE_CONSTANT_A_SECOND_RE = re.compile(r"[cC]\s*\[\s*(\d+)\s*\+\s*[aA]0\s*\
 _REG_CONSTANT = -1
 
 
+# Maps a uniform type
+_UNIFORM_TYPE_TO_SIZE = {
+    VshLexer.TYPE_VECTOR: 1,
+    VshLexer.TYPE_MATRIX4: 4,
+}
+
+
+class _Uniform:
+    """Holds information about a uniform declaration."""
+
+    def __init__(self, identifier: str, type_id: int, value: int):
+        self.identifier = identifier
+        self.type_id = type_id
+        self.value = value
+        self.size = _UNIFORM_TYPE_TO_SIZE[type_id]
+
+
+class _ConstantRegister:
+    def __init__(self, index, is_relative=False):
+        self.index = index
+        self.is_relative = is_relative
+
+    @property
+    def type(self):
+        return _REG_CONSTANT
+
+
 class EncodingVisitor(VshVisitor):
     """Visitor that generates a list of vsh instructions."""
 
-    class _ConstantRegister:
-        def __init__(self, index, is_relative=False):
-            self.index = index
-            self.is_relative = is_relative
-
-        @property
-        def type(self):
-            return _REG_CONSTANT
+    def __init__(self) -> None:
+        super().__init__()
+        self._uniforms = {}
 
     def visitStatement(self, ctx: VshParser.StatementContext):
         operations = self.visitChildren(ctx)
         if operations:
             return operations[0]
+        return None
+
+    def visitUniform_type(self, ctx: VshParser.Uniform_typeContext):
+        assert len(ctx.children) == 1
+        assert ctx.children[0].symbol.type in _UNIFORM_TYPE_TO_SIZE
+        return ctx.children[0].symbol.type
+
+    def visitUniform_declaration(self, ctx: VshParser.Uniform_declarationContext):
+        uniform_type = self.visitChildren(ctx)[0]
+        assert len(ctx.children) == 3
+        identifier = ctx.children[0].symbol.text
+        value = int(ctx.children[2].symbol.text)
+
+        if identifier in self._uniforms:
+            raise Exception(
+                f"Duplicate definition of uniform {identifier} at line {ctx.start.line}"
+            )
+        self._uniforms[identifier] = _Uniform(identifier, uniform_type, value)
         return None
 
     def visitOperation(self, ctx: VshParser.OperationContext):
@@ -408,24 +449,41 @@ class EncodingVisitor(VshVisitor):
         reg = ctx.children[0].symbol
         if reg.type == VshLexer.REG_Cx_BARE:
             register = int(reg.text[1:])
-            return self._ConstantRegister(register)
+            return _ConstantRegister(register)
         if reg.type == VshLexer.REG_Cx_BRACKETED:
             register = int(reg.text[2:-1])
-            return self._ConstantRegister(register)
+            return _ConstantRegister(register)
         if reg.type == VshLexer.REG_Cx_RELATIVE_A_FIRST:
             match = _RELATIVE_CONSTANT_A_FIRST_RE.match(reg.text)
             if not match:
                 raise Exception(f"Failed to parse relative constant {reg.text}")
             register = int(match.group(1))
-            return self._ConstantRegister(register, True)
+            return _ConstantRegister(register, True)
         if reg.type == VshLexer.REG_Cx_RELATIVE_A_SECOND:
             match = _RELATIVE_CONSTANT_A_SECOND_RE.match(reg.text)
             if not match:
                 raise Exception(f"Failed to parse relative constant {reg.text}")
             register = int(match.group(1))
-            return self._ConstantRegister(register, True)
+            return _ConstantRegister(register, True)
 
         raise Exception(f"TODO: Implement unhandled const register format {reg.text}")
+
+    def visitUniform_const(self, ctx: VshParser.Uniform_constContext):
+        name = ctx.children[0].symbol.text
+        uniform: Optional[_Uniform] = self._uniforms.get(name)
+        if not uniform:
+            raise Exception(f"Undefined uniform {name} used at line {ctx.start.line}")
+
+        offset = 0
+        if len(ctx.children) > 1:
+            offset = int(ctx.children[2].symbol.text)
+
+        if offset >= uniform.size:
+            raise Exception(
+                f"Uniform offset out of range (max is {uniform.size - 1}) at line {ctx.start.line}"
+            )
+
+        return _ConstantRegister(uniform.value + offset * 4)
 
     def _process_destination_mask(self, mask):
         if not mask:

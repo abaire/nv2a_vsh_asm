@@ -351,57 +351,6 @@ class Instruction:
         )
 
 
-class _VshField(enum.Enum):
-    FLD_ILU = enum.auto()
-    FLD_MAC = enum.auto()
-    FLD_CONST = enum.auto()
-    FLD_V = enum.auto()
-    FLD_A_NEG = enum.auto()
-    FLD_A_SWZ_X = enum.auto()
-    FLD_A_SWZ_Y = enum.auto()
-    FLD_A_SWZ_Z = enum.auto()
-    FLD_A_SWZ_W = enum.auto()
-    FLD_A_R = enum.auto()
-    FLD_A_MUX = enum.auto()
-    FLD_B_NEG = enum.auto()
-    FLD_B_SWZ_X = enum.auto()
-    FLD_B_SWZ_Y = enum.auto()
-    FLD_B_SWZ_Z = enum.auto()
-    FLD_B_SWZ_W = enum.auto()
-    FLD_B_R = enum.auto()
-    FLD_B_MUX = enum.auto()
-    FLD_C_NEG = enum.auto()
-    FLD_C_SWZ_X = enum.auto()
-    FLD_C_SWZ_Y = enum.auto()
-    FLD_C_SWZ_Z = enum.auto()
-    FLD_C_SWZ_W = enum.auto()
-    FLD_C_R_HIGH = enum.auto()
-    FLD_C_R_LOW = enum.auto()
-    FLD_C_MUX = enum.auto()
-    FLD_OUT_MAC_MASK = enum.auto()
-    FLD_OUT_R = enum.auto()
-    FLD_OUT_ILU_MASK = enum.auto()
-    FLD_OUT_O_MASK = enum.auto()
-    FLD_OUT_ORB = enum.auto()
-    FLD_OUT_ADDRESS = enum.auto()
-    FLD_OUT_MUX = enum.auto()
-    FLD_A0X = enum.auto()
-    FLD_FINAL = enum.auto()
-    FLD_C_R = 9999
-
-
-_FieldMapping = collections.namedtuple(
-    "_FieldMapping", ["subtoken", "start_bit", "bit_length"]
-)
-
-
-def _get_field_val(vsh_ins: List[int], mapping: _FieldMapping) -> int:
-    val = vsh_ins[mapping.subtoken]
-    val >>= mapping.start_bit
-    val &= (1 << mapping.bit_length) - 1
-    return val
-
-
 def _process_opcode(
     ins: Instruction, out: vsh_instruction.VshInstruction
 ) -> Tuple[bool, bool]:
@@ -522,7 +471,7 @@ def _process_destination(
         return
 
     if dst_reg.file == RegisterFile.PROGRAM_TEMPORARY:
-        vsh_ins.out_r = dst_reg.index
+        vsh_ins.out_temp_reg = dst_reg.index
         if mac:
             vsh_ins.out_mac_mask = _vsh_mask[dst_reg.write_mask]
         elif ilu:
@@ -578,7 +527,7 @@ def _process_source(
 
         if reg.file == RegisterFile.PROGRAM_TEMPORARY:
             vsh_ins.set_mux_field(i, PARAM_R)
-            vsh_ins.set_reg_field(i, reg.index)
+            vsh_ins.set_temp_reg_field(i, reg.index)
         elif reg.file == RegisterFile.PROGRAM_ENV_PARAM:
             vsh_ins.set_mux_field(i, PARAM_C)
             vsh_ins.const = reg.index
@@ -620,8 +569,7 @@ def encode_to_objects(
         if inline_final_flag:
             program[-1].final = True
         else:
-            vsh_ins = vsh_instruction.VshInstruction()
-            vsh_ins.set_empty_final()
+            vsh_ins = vsh_instruction.VshInstruction(True)
             program.append(vsh_ins)
 
     return program
