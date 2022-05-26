@@ -656,7 +656,8 @@ class VshInstruction:
         if not out_destination:
             return mac, ilu
 
-        if mac:
+        # Check to see if the MAC command writes to a temp register or is NOP.
+        if mac or not self.mac:
             return mac, out_destination
         return out_destination, ilu
 

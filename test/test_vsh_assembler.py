@@ -225,6 +225,14 @@ class VSHAssemblerTestCase(unittest.TestCase):
         # differently.
         # self._assert_vsh([0x00000000, 0x01A00000, 0x04001000, 0x20000000], results[0])
 
+    def test_rcp(self):
+        asm = Assembler("RCP oFog, v0.w")
+        asm.assemble()
+        results = asm.output
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x0400001B, 0x083613FC, 0x2070F82C], results[0])
+
     def test_simple(self):
         all_input = os.path.join(_RESOURCE_PATH, "simple.vsh")
         with open(all_input) as infile:
