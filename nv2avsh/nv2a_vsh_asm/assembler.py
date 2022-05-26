@@ -51,4 +51,9 @@ class Assembler:
             lines.append(f"/* {source} */")
             lines.append(f"0x{int_0:08x}, 0x{int_1:08x}, 0x{int_2:08x}, 0x{int_3:08x},")
 
+        if len(self._output) == len(self._pretty_sources) + 1:
+            lines.append(f"/* <NOP FINAL MARKER> */")
+            int_0, int_1, int_2, int_3 = self._output[-1]
+            lines.append(f"0x{int_0:08x}, 0x{int_1:08x}, 0x{int_2:08x}, 0x{int_3:08x},")
+
         return "\n".join(lines)

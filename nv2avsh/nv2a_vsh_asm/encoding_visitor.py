@@ -490,7 +490,7 @@ class EncodingVisitor(VshVisitor):
                 f"Uniform offset out of range (max is {uniform.size - 1}) at line {ctx.start.line}"
             )
 
-        return _ConstantRegister(uniform.value + offset * 4)
+        return _ConstantRegister(uniform.value + offset)
 
     @staticmethod
     def _process_destination_mask(mask):
