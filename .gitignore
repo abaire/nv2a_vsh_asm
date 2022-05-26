@@ -11,3 +11,5 @@ out/
 .eggs/
 nv2a_vsh.egg-info/
 dist/
+
+*.pyc

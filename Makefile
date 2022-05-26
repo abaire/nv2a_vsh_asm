@@ -28,3 +28,11 @@ clean:
 		$(GRAMMAR_OUT)/VshListener.py \
 		$(GRAMMAR_OUT)/VshParser.py \
 		$(GRAMMAR_OUT)/VshVisitor.py
+
+.PHONY: testpypi-install
+testpypi-install:
+	python3 -m pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ nv2a-vsh --upgrade
+
+.PHONY: pypi-install
+pypi-install:
+	python3 -m pip install nv2a-vsh --upgrade

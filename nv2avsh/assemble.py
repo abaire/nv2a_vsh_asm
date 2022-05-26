@@ -21,7 +21,7 @@ def _main(args):
     with open(args.input, "r") as infile:
         asm = nv2a_vsh_asm.Assembler(infile.read())
 
-    asm.assemble()
+    asm.assemble(inline_final_flag=(not args.explicit_final))
     results = asm.get_c_output()
 
     if args.output:
@@ -50,6 +50,13 @@ def entrypoint():
             nargs="?",
             metavar="target_path",
             help="Path to write the .inl output.",
+        )
+
+        parser.add_argument(
+            "-e",
+            "--explicit-final",
+            action="store_true",
+            help="Append a nop instruction instead of marking the last real instruction as FINAL",
         )
 
         parser.add_argument(
