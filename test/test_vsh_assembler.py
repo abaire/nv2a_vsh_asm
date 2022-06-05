@@ -198,6 +198,14 @@ class VSHAssemblerTestCase(unittest.TestCase):
         self.assertEqual(len(results), 2)
         self._assert_vsh([0x00000000, 0x00C1E81B, 0x0836186C, 0x20708848], results[0])
 
+    def test_uniform_matrix4_with_zero_offset(self):
+        asm = Assembler("#test_matrix matrix4 15\nDPH oT0.x, v4, #test_matrix[0]")
+        asm.assemble()
+        results = asm.output
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x00C1E81B, 0x0836186C, 0x20708848], results[0])
+
     def test_uniform_matrix4_with_offset(self):
         asm = Assembler("#test_matrix matrix4 11\nDPH oT0.x, v4, #test_matrix[ 1 ]")
         asm.assemble()
@@ -232,6 +240,14 @@ class VSHAssemblerTestCase(unittest.TestCase):
         self._assert_final_marker(results)
         self.assertEqual(len(results), 2)
         self._assert_vsh([0x00000000, 0x0400001B, 0x083613FC, 0x2070F82C], results[0])
+
+    def test_r12(self):
+        asm = Assembler("MUL oPos.xyz, R12.xyz, c[58].xyz")
+        asm.assemble()
+        results = asm.output
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x0047401A, 0xC4355800, 0x20A0E800], results[0])
 
     def test_simple(self):
         all_input = os.path.join(_RESOURCE_PATH, "simple.vsh")

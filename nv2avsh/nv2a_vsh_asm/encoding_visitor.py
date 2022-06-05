@@ -538,7 +538,7 @@ class EncodingVisitor(VshVisitor):
     def _process_input(self, source, swizzle):
         swizzle = self._process_source_swizzle(swizzle)
 
-        if source.type == VshLexer.REG_Rx:
+        if source.type == VshLexer.REG_Rx or source.type == VshLexer.REG_R12:
             register = int(source.text[1:])
             return vsh_encoder.SourceRegister(
                 vsh_encoder.RegisterFile.PROGRAM_TEMPORARY, register, swizzle

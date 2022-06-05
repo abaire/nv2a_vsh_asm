@@ -77,7 +77,7 @@ p_a0_output: REG_A0 DESTINATION_MASK? ;
 p_output : (REG_Rx | REG_OUTPUT) DESTINATION_MASK? ;
 // Input swizzling is more permissive than destination masks, but the matching is
 // overlapping so both tokens are accepted.
-p_input_raw : (REG_Rx | REG_INPUT | reg_const | uniform_const) (SWIZZLE_MASK | DESTINATION_MASK)? ;
+p_input_raw : (REG_Rx | REG_INPUT | REG_R12 | reg_const | uniform_const) (SWIZZLE_MASK | DESTINATION_MASK)? ;
 p_input_negated : NEGATE p_input_raw ;
 p_input : p_input_raw | p_input_negated ;
 
@@ -132,6 +132,9 @@ fragment REG_I_TEX3 : [vV]'12' | 'iTex3' ;
 fragment REG_V13 : [vV]'13' ;
 fragment REG_V14 : [vV]'14' ;
 fragment REG_V15 : [vV]'15' ;
+
+// R12 is a special input-only alias of 'oPos'
+REG_R12 : [rR]'12' ;
 
 REG_INPUT :
     REG_I_POS

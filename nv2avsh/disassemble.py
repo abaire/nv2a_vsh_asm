@@ -34,7 +34,8 @@ def _parse_binary_input(infile):
     raise Exception("TODO: Implement me.")
 
 
-def _disassemble(values: List[List[int]], explain: bool) -> List[str]:
+def disassemble(values: List[List[int]], explain: bool) -> List[str]:
+    """Disassembles the given list of machine code entries, returning a list of menmonics."""
     ret = []
 
     vsh_ins = vsh_instruction.VshInstruction()
@@ -46,6 +47,18 @@ def _disassemble(values: List[List[int]], explain: bool) -> List[str]:
             disassembled += "\n/*" + vsh_ins.explain() + "\n*/"
         ret.append(disassembled)
 
+    return ret
+
+
+def disassemble_to_instructions(
+    values: List[List[int]],
+) -> List[vsh_instruction.VshInstruction]:
+    """Converts the given list of machine code instructions to VshInstruction instances."""
+    ret = []
+    for instruction in values:
+        vsh_ins = vsh_instruction.VshInstruction()
+        vsh_ins.set_values(instruction)
+        ret.append(vsh_ins)
     return ret
 
 
@@ -64,7 +77,7 @@ def _main(args):
         with open(args.input, "rb") as infile:
             values = _parse_binary_input(infile)
 
-    results = _disassemble(values, args.explain)
+    results = disassemble(values, args.explain)
     results = "\n".join(results)
 
     if args.output:

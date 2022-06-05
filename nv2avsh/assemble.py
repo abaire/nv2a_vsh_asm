@@ -6,8 +6,25 @@ import argparse
 import logging
 import os
 import sys
+from typing import List
 
-from . import nv2a_vsh_asm
+from nv2avsh import nv2a_vsh_asm
+
+
+def assemble_to_c(source: str, explicit_final: bool = False) -> str:
+    """Assembles the given source string, returning a C-style list of values."""
+    asm = nv2a_vsh_asm.Assembler(source)
+    asm.assemble(inline_final_flag=(not explicit_final))
+    results = asm.get_c_output()
+    return results
+
+
+def assemble(source: str, explicit_final: bool = False) -> List[List[int]]:
+    """Assembles the given source string, returning a list of machine code entries."""
+    asm = nv2a_vsh_asm.Assembler(source)
+    asm.assemble(inline_final_flag=(not explicit_final))
+    results = asm.output
+    return results
 
 
 def _main(args):
@@ -19,10 +36,8 @@ def _main(args):
         return 1
 
     with open(args.input, "r") as infile:
-        asm = nv2a_vsh_asm.Assembler(infile.read())
-
-    asm.assemble(inline_final_flag=(not args.explicit_final))
-    results = asm.get_c_output()
+        source = infile.read()
+    results = assemble_to_c(source, args.explicit_final)
 
     if args.output:
         with open(args.output, "w") as outfile:

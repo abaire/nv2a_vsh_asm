@@ -1,6 +1,7 @@
 """Setuptools entrypoint for assembler/disassembler."""
 from . import assemble
 from . import disassemble
+from .nv2a_vsh_asm import vsh_instruction
 
 
 def run_assemble():
