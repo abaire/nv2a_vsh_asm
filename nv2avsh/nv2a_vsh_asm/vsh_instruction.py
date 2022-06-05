@@ -694,20 +694,49 @@ class VshInstruction:
             raise Exception(f"Unsupported MAC operand {self.mac}")
         return mac_inputs
 
-    def disassemble(self) -> str:
-        """Disassembles this instruction into assembly language."""
+    def disassemble_to_dict(self) -> dict:
         mac, ilu = self._disassemble_operands()
         mac_output, ilu_output = self._disassemble_outputs()
         inputs = self._dissasemble_inputs()
 
-        ret = []
+        def _build(mnemonic, output, inputs):
+            return {
+                "mnemonic": mnemonic,
+                "output": output,
+                "inputs": inputs,
+            }
+
+        ret = {}
         if mac:
-            mac += f" {mac_output}, "
-            ret.append(mac + ", ".join(self._filter_mac_inputs(inputs)))
+            ret["mac"] = _build(mac, mac_output, self._filter_mac_inputs(inputs))
 
         if ilu:
-            ilu += f" {ilu_output}, {inputs[2]}"
-            ret.append(ilu)
+            ret["ilu"] = _build(ilu, ilu_output, [inputs[2]])
+
+        return ret
+
+    def disassemble(self) -> str:
+        """Disassembles this instruction into assembly language."""
+        info = self.disassemble_to_dict()
+
+        ret = []
+        mac = info.get("mac")
+        if mac:
+            mnemonic = mac["mnemonic"]
+            output = mac["output"]
+            inputs = mac["inputs"]
+
+            mac_str = f"{mnemonic} {output}, " + ", ".join(inputs)
+            ret.append(mac_str)
+
+        ilu = info.get("ilu")
+        if ilu:
+            mnemonic = ilu["mnemonic"]
+            output = ilu["output"]
+            inputs = ilu["inputs"]
+
+            ilu_str = f"{mnemonic} {output}, " + ", ".join(inputs)
+            ret.append(ilu_str)
 
         return " + ".join(ret)
 
