@@ -95,6 +95,16 @@ class DisassemblerTestCase(unittest.TestCase):
             [0x00000000, 0x0047401A, 0xC434186C, 0x2070E800],
         )
 
+    def test_disassembler_multi_output_no_explain(self):
+        def _test(expected, value):
+            result = disassemble.disassemble([value], False)
+            self.assertEqual([expected], result)
+
+        _test(
+            "DP4 oPos.z, R6, c[98] + DP4 R0.x, R6, c[98]",
+            [0x00000000, 0x00EC401B, 0x64365800, 0x28002800],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
