@@ -251,6 +251,16 @@ class VSHAssemblerTestCase(unittest.TestCase):
         # Ambiguous result, differs in unused fields.
         # self._assert_vsh([0x00000000, 0x0047401A, 0xC4355800, 0x20A0E800], results[0])
 
+    def test_two_output_instruction(self):
+        asm = Assembler("DP4 oPos.z, R6, c[98] + DP4 R0.x, R6, c[98]")
+        asm.assemble()
+        results = asm.output
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x00EC401B, 0x6436186C, 0x28002800], results[0])
+        # Ambiguous result, differs in unused fields.
+        # self._assert_vsh([0x00000000, 0x00EC401B, 0x64365800, 0x28002800], results[0])
+
     def test_simple(self):
         all_input = os.path.join(_RESOURCE_PATH, "simple.vsh")
         with open(all_input) as infile:

@@ -4,8 +4,9 @@
 # pylint: disable=too-many-public-methods
 # pylint: disable=useless-return
 
+import collections
 import re
-from typing import Optional
+from typing import List, Optional, Tuple
 
 from nv2avsh.grammar.vsh.VshLexer import VshLexer
 from nv2avsh.grammar.vsh.VshParser import VshParser
@@ -126,6 +127,12 @@ _UNIFORM_TYPE_TO_SIZE = {
 }
 
 
+class EncodingError(Exception):
+    """Represents a fatal error during encoding."""
+
+    pass
+
+
 class _Uniform:
     """Holds information about a uniform declaration."""
 
@@ -145,6 +152,231 @@ class _ConstantRegister:
     def type(self):
         """Causes this instance to be treated as a special token type."""
         return _REG_CONSTANT
+
+
+def _merge_ops(
+    ops: List[Tuple[vsh_encoder.Instruction, str]]
+) -> Tuple[Optional[Tuple[vsh_encoder.Instruction, str]], str]:
+    """Merges the given list of one or two instructions into a single instruction or error message."""
+    if len(ops) == 1:
+        return ops[0], ""
+
+    if len(ops) != 2 or ops[0][0].opcode != ops[1][0].opcode:
+        return None, "conflicting operations"
+
+    if not ops[0][0].identical_inputs(ops[1][0]):
+        return None, "operations have different inputs"
+
+    # Reorder such that the temporary target comes last.
+    op = ops[0][0]
+    if op.dst_reg.targets_temporary:
+        ops = [ops[1], ops[0]]
+
+    # Ensure that there is one output and one temp.
+    output_op = ops[0][0]
+    if output_op.dst_reg.targets_temporary:
+        return None, "operations both target temporary registers"
+
+    temp_op = ops[1][0]
+    if not temp_op.dst_reg.targets_temporary:
+        return None, "operations both target output registers"
+
+    output_op.secondary_dst_reg = temp_op.dst_reg
+    merged_source = " + ".join([ops[0][1], ops[1][1]])
+
+    return (output_op, merged_source), ""
+
+
+def _distribute_mov_ops(
+    mov_ops: List[Tuple[vsh_encoder.Instruction, str]], mac_ops: List, ilu_ops: List
+) -> str:
+    """Distributes a list of mov ops to the given lists or returns an error message."""
+
+    movs_by_inputs = collections.defaultdict(list)
+    for entry in mov_ops:
+        op = entry[0]
+        movs_by_inputs[op.input_signature()].append(entry)
+
+    if len(movs_by_inputs) > 2:
+        return "more than 2 distinct sets of inputs"
+
+    # Merge any paired MOVs.
+    output_target = None
+    r1_target = None
+    temp_target = None
+
+    for movs in movs_by_inputs.values():
+        merged, error_message = _merge_ops(movs)
+        if error_message:
+            return error_message
+
+        targets_r1 = merged[0].primary_op_targets_r1
+        targets_temp = merged[0].primary_op_targets_temporary
+        targets_output = merged[0].primary_op_targets_output
+        if targets_r1:
+            if r1_target:
+                return "more than 1 MOV targets R1"
+            r1_target = merged
+        if targets_output:
+            if output_target:
+                return "more than 1 MOV targets an output register"
+            output_target = merged
+        if targets_temp and not targets_r1:
+            if temp_target:
+                return "more than 1 MOV targets a non-R1 temporary register"
+            temp_target = merged
+
+    # If the R1 target also writes to an output register it can be treated as R1 now
+    # that output collisions have been resolved.
+    if output_target and r1_target and output_target[0] == r1_target[0]:
+        output_target = None
+    # Similarly, if the temp target aslo writes to the output register, it can be
+    # treated as a temp target.
+    if output_target and temp_target and output_target[0] == temp_target[0]:
+        output_target = None
+
+    has_mac = len(mac_ops) > 0
+
+    # If there's a non-MOV MAC instruction, the MOV must be ILU.
+    if has_mac:
+        if temp_target:
+            return "ILU operation may not target non-R1 temporary registers"
+        if output_target:
+            output_target[0].swap_inputs_a_c()
+            ilu_ops.append(output_target)
+        if r1_target:
+            r1_target[0].swap_inputs_a_c()
+            ilu_ops.append(r1_target)
+        return ""
+
+    # If there's a non-MOV ILU instruction, the MOV must be MAC.
+    has_ilu = len(ilu_ops) > 0
+    if has_ilu:
+        if temp_target:
+            mac_ops.append(temp_target)
+        if output_target:
+            mac_ops.append(output_target)
+        if r1_target:
+            mac_ops.append(r1_target)
+        return ""
+
+    # The ILU can only target R1, so if there's another write to a temporary register,
+    # it must be a MAC op.
+    if temp_target:
+        mac_ops.append(temp_target)
+        if output_target:
+            output_target[0].swap_inputs_a_c()
+            ilu_ops.append(output_target)
+        elif r1_target:
+            r1_target[0].swap_inputs_a_c()
+            ilu_ops.append(r1_target)
+        return ""
+
+    # At this point there may be two MOVs with distinct inputs, one of which must be
+    # output_target and the other must be r1_target. Assign the r1_target to the ILU.
+    if r1_target and output_target:
+        mac_ops.append(output_target)
+        r1_target[0].swap_inputs_a_c()
+        ilu_ops.append(r1_target)
+        return ""
+
+    # Now there can only be one MOV which must write to both a temp and an output
+    if r1_target:
+        mac_ops.append(r1_target)
+        assert not (output_target or temp_target)
+        return ""
+
+    if temp_target:
+        mac_ops.append(r1_target)
+        assert not output_target
+        return ""
+
+    raise EncodingError("Unexpected MOV processing state")
+
+
+def process_combined_operations(
+    operations: List[Tuple[vsh_encoder.Instruction, str]], start_line: int = 0
+) -> Tuple[vsh_encoder.Instruction, str]:
+    """Combines a set of instructions into a single chained instruction."""
+    mac_ops = []
+    ilu_ops = []
+    mov_ops = []
+
+    for entry in operations:
+        op = entry[0]
+        if op.opcode == vsh_encoder.Opcode.OPCODE_MOV:
+            mov_ops.append(entry)
+            continue
+
+        is_ilu = op.opcode.is_ilu()
+        if is_ilu:
+            entry[0].swap_inputs_a_c()
+            ilu_ops.append(entry)
+        else:
+            opcode = entry[0].opcode
+            if (
+                opcode == vsh_encoder.Opcode.OPCODE_ADD
+                or opcode == vsh_encoder.Opcode.OPCODE_SUB
+            ):
+                entry[0].swap_inputs_b_c()
+            mac_ops.append(entry)
+
+    num_mac = len(mac_ops)
+    if num_mac > 1:
+        merged, error = _merge_ops(mac_ops)
+        if error:
+            raise EncodingError(f"Conflicting MAC operations ({error}) at {start_line}")
+        mac_ops = [merged]
+
+    num_ilu = len(ilu_ops)
+    if num_ilu > 1:
+        merged, error = _merge_ops(ilu_ops)
+        if error:
+            raise EncodingError(f"Conflicting ILU operations ({error}) at {start_line}")
+        ilu_ops = [merged]
+
+    if mov_ops:
+        error_message = _distribute_mov_ops(mov_ops, mac_ops, ilu_ops)
+        if error_message:
+            raise EncodingError(f"Invalid pairing ({error_message}) at {start_line}")
+
+    if len(mac_ops) > 1:
+        raise EncodingError(
+            f"Invalid pairing (more than 2 MAC operations) at {start_line}"
+        )
+    if len(ilu_ops) > 1:
+        raise EncodingError(
+            f"Invalid pairing (more than 2 ILU operations) at {start_line}"
+        )
+
+    if mac_ops and ilu_ops:
+        combined_op = mac_ops[0][0]
+        combined_src = mac_ops[0][1]
+        ilu_op = ilu_ops[0][0]
+        ilu_src = ilu_ops[0][1]
+
+        input_c = combined_op.src_reg[2]
+
+        if input_c and input_c != ilu_op.src_reg[2]:
+            raise EncodingError(
+                f"Invalid instruction pairing (MAC operation uses input C which does not match ILU input)"
+            )
+        combined_op.src_reg[2] = ilu_op.src_reg[2]
+        combined_op.paired_ilu_opcode = ilu_op.opcode
+        combined_op.paired_ilu_dst_reg = ilu_op.dst_reg
+        combined_op.paired_ilu_secondary_dst_reg = ilu_op.secondary_dst_reg
+
+        combined_src = f"{combined_src} + {ilu_src}"
+        combined = combined_op, combined_src
+
+    elif mac_ops:
+        combined = mac_ops[0]
+    elif ilu_ops:
+        combined = ilu_ops[0]
+    else:
+        raise ValueError("Bad state, mac_ops and ilu_ops empty.")
+
+    return combined
 
 
 class EncodingVisitor(VshVisitor):
@@ -172,7 +404,7 @@ class EncodingVisitor(VshVisitor):
         value = int(ctx.children[2].symbol.text)
 
         if identifier in self._uniforms:
-            raise Exception(
+            raise EncodingError(
                 f"Duplicate definition of uniform {identifier} at line {ctx.start.line}"
             )
         self._uniforms[identifier] = _Uniform(identifier, uniform_type, value)
@@ -185,56 +417,8 @@ class EncodingVisitor(VshVisitor):
 
     def visitCombined_operation(self, ctx: VshParser.Combined_operationContext):
         operations = self.visitChildren(ctx)
-        assert len(operations) == 2
-
-        op_a, a_src = operations[0]
-        op_b, b_src = operations[1]
-        a_ilu = op_a.opcode.is_ilu()
-        b_ilu = op_b.opcode.is_ilu()
-
-        # Detect ILU mov instruction pairing (a mov + a MAC instruction implies ILU mov)
-        if not (a_ilu or b_ilu):
-            if op_a.opcode == vsh_encoder.Opcode.OPCODE_MOV:
-                a_ilu = True
-            if op_b.opcode == vsh_encoder.Opcode.OPCODE_MOV:
-                b_ilu = True
-
-        if a_ilu and b_ilu:
-            raise Exception(
-                f"Invalid instruction pairing (both ILU) at {ctx.start.line}"
-            )
-        if not (a_ilu or b_ilu):
-            raise Exception(
-                f"Invalid instruction pairing (both MAC) at {ctx.start.line}"
-            )
-
-        if a_ilu:
-            op_a, op_b = op_b, op_a
-            a_src, b_src = b_src, a_src
-
-        ilu_dst: vsh_encoder.DestinationRegister = op_b.dst_reg
-        mac_dst: vsh_encoder.DestinationRegister = op_a.dst_reg
-        if (
-            mac_dst.file == vsh_encoder.RegisterFile.PROGRAM_TEMPORARY
-            and mac_dst.index == 1
-        ):
-            print(
-                "Warning: MAC instruction writing to R1 in MAC+ILU pairing at "
-                f"{ctx.start.line} will be ignored."
-            )
-
-        return (
-            vsh_encoder.Instruction(
-                op_a.opcode,
-                op_a.dst_reg,
-                op_a.src_reg[0],
-                op_a.src_reg[1],
-                op_b.src_reg[0],
-                op_b.opcode,
-                ilu_dst,
-            ),
-            f"{a_src} + {b_src}",
-        )
+        assert 2 <= len(operations) <= 4
+        return process_combined_operations(operations, ctx.start.line)
 
     def visitOp_add(self, ctx: VshParser.Op_addContext):
         operands = self.visitChildren(ctx)
@@ -463,30 +647,34 @@ class EncodingVisitor(VshVisitor):
         if reg.type == VshLexer.REG_Cx_RELATIVE_A_FIRST:
             match = _RELATIVE_CONSTANT_A_FIRST_RE.match(reg.text)
             if not match:
-                raise Exception(f"Failed to parse relative constant {reg.text}")
+                raise EncodingError(f"Failed to parse relative constant {reg.text}")
             register = int(match.group(1))
             return _ConstantRegister(register, True)
         if reg.type == VshLexer.REG_Cx_RELATIVE_A_SECOND:
             match = _RELATIVE_CONSTANT_A_SECOND_RE.match(reg.text)
             if not match:
-                raise Exception(f"Failed to parse relative constant {reg.text}")
+                raise EncodingError(f"Failed to parse relative constant {reg.text}")
             register = int(match.group(1))
             return _ConstantRegister(register, True)
 
-        raise Exception(f"TODO: Implement unhandled const register format {reg.text}")
+        raise EncodingError(
+            f"TODO: Implement unhandled const register format {reg.text}"
+        )
 
     def visitUniform_const(self, ctx: VshParser.Uniform_constContext):
         name = ctx.children[0].symbol.text
         uniform: Optional[_Uniform] = self._uniforms.get(name)
         if not uniform:
-            raise Exception(f"Undefined uniform {name} used at line {ctx.start.line}")
+            raise EncodingError(
+                f"Undefined uniform {name} used at line {ctx.start.line}"
+            )
 
         offset = 0
         if len(ctx.children) > 1:
             offset = int(ctx.children[2].symbol.text)
 
         if offset >= uniform.size:
-            raise Exception(
+            raise EncodingError(
                 f"Uniform offset out of range (max is {uniform.size - 1}) at line {ctx.start.line}"
             )
 
@@ -521,7 +709,7 @@ class EncodingVisitor(VshVisitor):
                 mask,
             )
 
-        raise Exception(
+        raise EncodingError(
             f"Unsupported output target '{target.text}' at {target.line}:{target.column}"
         )
 
@@ -558,7 +746,7 @@ class EncodingVisitor(VshVisitor):
                 source.is_relative,
             )
 
-        raise Exception(
+        raise EncodingError(
             f"Unsupported input register '{source.text}' at {source.line}:{source.column}"
         )
 
@@ -585,7 +773,7 @@ class EncodingVisitor(VshVisitor):
             name = vsh_encoder_defs.DESTINATION_REGISTER_TO_NAME_MAP[register.index]
             return f"{name}{mask}"
 
-        raise Exception("TODO: Implement destination register prettification.")
+        raise EncodingError("TODO: Implement destination register prettification.")
 
     @staticmethod
     def _prettify_source(register: vsh_encoder.SourceRegister) -> str:
@@ -609,7 +797,7 @@ class EncodingVisitor(VshVisitor):
             name = _SOURCE_REGISTER_TO_NAME_MAP[register.index]
             return f"{prefix}{name}{swizzle}"
 
-        raise Exception("TODO: Implement destination register prettification.")
+        raise EncodingError("TODO: Implement destination register prettification.")
 
     def _prettify_operands(self, operands) -> str:
 

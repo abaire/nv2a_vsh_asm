@@ -10,7 +10,7 @@ statement :
     ;
 
 combined_operation :
-    operation NEWLINE* COMBINE NEWLINE* operation
+    operation NEWLINE* COMBINE NEWLINE* operation (NEWLINE* COMBINE NEWLINE* operation)?
     ;
 
 operation :

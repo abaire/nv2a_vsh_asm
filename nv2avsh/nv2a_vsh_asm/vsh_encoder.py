@@ -115,15 +115,24 @@ class SourceRegister:
         rel_addr: bool = False,
         negate: bool = False,
     ):
-        self.file = file
-        self.index = index
-        self.swizzle = swizzle
-        self.rel_addr = rel_addr
-        self.negate = negate
+        self.file: RegisterFile = file
+        self.index: int = index
+        self.swizzle: int = swizzle
+        self.rel_addr: bool = rel_addr
+        self.negate: bool = negate
 
     def set_negated(self):
         """This register's value should be negated."""
         self.negate = True
+
+    def as_tuple(self):
+        """Returns the contents of this destination register as a tuple."""
+        return (self.file, self.index, self.swizzle, self.rel_addr, self.negate)
+
+    def __eq__(self, other):
+        if not isinstance(other, SourceRegister):
+            return NotImplemented
+        return other.as_tuple() == self.as_tuple()
 
     def __repr__(self):
         return (
@@ -148,6 +157,23 @@ class DestinationRegister:
         self.write_mask = write_mask
         self.rel_addr = rel_addr
 
+    @property
+    def targets_temporary(self):
+        """Whether this destination is one of the temporary (Rx) registers."""
+        return self.file == RegisterFile.PROGRAM_TEMPORARY
+
+    def as_tuple(self):
+        """Returns the contents of this destination register as a tuple."""
+        return (self.file, self.index, self.write_mask, self.rel_addr)
+
+    def __hash__(self):
+        return hash(self.as_tuple())
+
+    def __eq__(self, other):
+        if not isinstance(other, DestinationRegister):
+            return NotImplemented
+        return other.as_tuple() == self.as_tuple()
+
     def __repr__(self):
         return f"{type(self).__name__}({self.pretty_string()})"
 
@@ -162,30 +188,104 @@ class Instruction:
     def __init__(
         self,
         opcode: Opcode,
-        dst_reg: Optional[DestinationRegister] = None,
+        output: Optional[DestinationRegister] = None,
         src_a: Optional[SourceRegister] = None,
         src_b: Optional[SourceRegister] = None,
         src_c: Optional[SourceRegister] = None,
+        secondary_output: Optional[DestinationRegister] = None,
         paired_ilu_opcode: Optional[Opcode] = None,
         paired_ilu_dst_reg: Optional[DestinationRegister] = None,
+        paired_ilu_secondary_dst_reg: Optional[DestinationRegister] = None,
     ):
         self.opcode = opcode
-        self.dst_reg = dst_reg
+        self.dst_reg = output
+        self.secondary_dst_reg = secondary_output
         self.src_reg = [src_a, src_b, src_c]
         self.paired_ilu_opcode = paired_ilu_opcode
         self.paired_ilu_dst_reg = paired_ilu_dst_reg
+        self.paired_ilu_secondary_dst_reg = paired_ilu_secondary_dst_reg
 
-    def __repr__(self):
+    @property
+    def primary_op_targets_r1(self) -> bool:
+        """Returns True if the primary operation targets the R1 register."""
+        for reg in [self.dst_reg, self.secondary_dst_reg]:
+            if not reg:
+                continue
+            if reg.targets_temporary and reg.index == 1:
+                return True
+        return False
+
+    @property
+    def primary_op_targets_temporary(self) -> bool:
+        """Returns True if the primary operation targets any temporary register."""
+        for reg in [self.dst_reg, self.secondary_dst_reg]:
+            if not reg:
+                continue
+            if reg.targets_temporary:
+                return True
+        return False
+
+    @property
+    def primary_op_targets_output(self) -> bool:
+        """Returns True if the primary operation targets an output (o or c) register."""
+        for reg in [self.dst_reg, self.secondary_dst_reg]:
+            if not reg:
+                continue
+            if not reg.targets_temporary:
+                return True
+        return False
+
+    def input_signature(self) -> Tuple:
+        """Returns a tuple describing the inputs to this operation."""
+        elements = []
+        for src in self.src_reg:
+            if not src:
+                elements.append(src)
+                continue
+            elements.append(src.as_tuple())
+        return tuple(elements)
+
+    def identical_inputs(self, other) -> bool:
+        """Returns True if `other` has the same src_reg's as this Instruction."""
+        return other.input_signature() == self.input_signature()
+
+    def swap_inputs_a_c(self):
+        """Swaps the A and C inputs (e.g., for an ILU instruction)."""
+        self.src_reg = [self.src_reg[2], self.src_reg[1], self.src_reg[0]]
+
+    def swap_inputs_b_c(self):
+        """Swaps the B and C inputs (e.g., for an ADD instruction)."""
+        self.src_reg = [self.src_reg[0], self.src_reg[2], self.src_reg[1]]
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, Instruction):
+            return False
+
+        return (
+            other.opcode == self.opcode
+            and other.dst_reg == self.dst_reg
+            and other.secondary_dst_reg == self.secondary_dst_reg
+            and other.paired_ilu_opcode == self.paired_ilu_opcode
+            and other.paired_ilu_dst_reg == self.paired_ilu_dst_reg
+            and other.paired_ilu_secondary_dst_reg == self.paired_ilu_secondary_dst_reg
+            and self.identical_inputs(other)
+        )
+
+    def __repr__(self) -> str:
         paired_info = ""
         if self.paired_ilu_opcode:
             assert self.paired_ilu_dst_reg
-            paired_info = (
-                f" + {self.paired_ilu_opcode}=>{repr(self.paired_ilu_dst_reg)}"
-            )
+            secondary_output = ""
+            if self.paired_ilu_secondary_dst_reg:
+                secondary_output = f"+{repr(self.paired_ilu_secondary_dst_reg)}"
+            paired_info = f" + {self.paired_ilu_opcode}=>{repr(self.paired_ilu_dst_reg)}{secondary_output}"
 
         params = [repr(p) for p in self.src_reg if p]
+        secondary_output = ""
+        if self.secondary_dst_reg:
+            secondary_output = f"+{repr(self.secondary_dst_reg)}"
         return (
-            f"<{type(self).__name__} {self.opcode} {repr(self.dst_reg)} "
+            f"<{type(self).__name__} {self.opcode} {repr(self.dst_reg)}{secondary_output} "
             + " ".join(params)
             + f"{paired_info}"
             + ">"
@@ -308,50 +408,57 @@ def _process_opcode(
 
 def _process_destination(
     dst_reg: Optional[DestinationRegister],
+    secondary_dst_reg: Optional[DestinationRegister],
     ilu: bool,
     mac: bool,
     vsh_ins: vsh_instruction.VshInstruction,
 ):
     if not dst_reg:
+        assert not secondary_dst_reg
         return
 
-    if dst_reg.file == RegisterFile.PROGRAM_TEMPORARY:
-        vsh_ins.out_temp_reg = dst_reg.index
-        if mac:
-            vsh_ins.out_mac_mask = VSH_MASK[dst_reg.write_mask]
-        elif ilu:
-            vsh_ins.out_ilu_mask = VSH_MASK[dst_reg.write_mask]
-        return
+    def _process(reg: DestinationRegister):
+        if reg.file == RegisterFile.PROGRAM_TEMPORARY:
+            vsh_ins.out_temp_reg = reg.index
+            if mac:
+                vsh_ins.out_mac_mask = VSH_MASK[reg.write_mask]
+            elif ilu:
+                vsh_ins.out_ilu_mask = VSH_MASK[reg.write_mask]
+            return
 
-    if dst_reg.file == RegisterFile.PROGRAM_OUTPUT:
-        vsh_ins.out_o_mask = VSH_MASK[dst_reg.write_mask]
-        if mac:
-            vsh_ins.out_mux = OMUX_MAC
-        elif ilu:
-            vsh_ins.out_mux = OMUX_ILU
+        if reg.file == RegisterFile.PROGRAM_OUTPUT:
+            vsh_ins.out_o_mask = VSH_MASK[reg.write_mask]
+            if mac:
+                vsh_ins.out_mux = OMUX_MAC
+            elif ilu:
+                vsh_ins.out_mux = OMUX_ILU
 
-        vsh_ins.out_address = dst_reg.index
-        return
+            vsh_ins.out_address = reg.index
+            return
 
-    if dst_reg.file == RegisterFile.PROGRAM_ENV_PARAM:
-        vsh_ins.out_o_mask = VSH_MASK[dst_reg.write_mask]
-        if mac:
-            vsh_ins.out_mux = OMUX_MAC
-        elif ilu:
-            vsh_ins.out_mux = OMUX_ILU
+        if reg.file == RegisterFile.PROGRAM_ENV_PARAM:
+            vsh_ins.out_o_mask = VSH_MASK[reg.write_mask]
+            if mac:
+                vsh_ins.out_mux = OMUX_MAC
+            elif ilu:
+                vsh_ins.out_mux = OMUX_ILU
 
-        vsh_ins.out_o_or_c = OUTPUT_C
-        vsh_ins.out_address = dst_reg.index
-        return
+            vsh_ins.out_o_or_c = OUTPUT_C
+            vsh_ins.out_address = reg.index
+            return
 
-    if dst_reg.file == RegisterFile.PROGRAM_ADDRESS:
-        # ARL is the only instruction that can write to A0 and it is MAC-only.
-        assert mac
+        if reg.file == RegisterFile.PROGRAM_ADDRESS:
+            # ARL is the only instruction that can write to A0 and it is MAC-only.
+            assert mac
 
-        # The destination is implied by the ARL operand, so nothing needs to be set.
-        return
+            # The destination is implied by the ARL operand, so nothing needs to be set.
+            return
 
-    raise Exception("Unsupported destination target.")
+        raise Exception(f"Unsupported destination register {reg}.")
+
+    _process(dst_reg)
+    if secondary_dst_reg:
+        _process(secondary_dst_reg)
 
 
 def _process_source(
@@ -398,10 +505,16 @@ def _process_source(
 def _process_instruction(ins: Instruction, vsh_ins: vsh_instruction.VshInstruction):
     ilu, mac = _process_opcode(ins, vsh_ins)
     if ins.paired_ilu_dst_reg:
-        _process_destination(ins.paired_ilu_dst_reg, True, False, vsh_ins)
-        _process_destination(ins.dst_reg, False, True, vsh_ins)
+        _process_destination(
+            ins.paired_ilu_dst_reg,
+            ins.paired_ilu_secondary_dst_reg,
+            True,
+            False,
+            vsh_ins,
+        )
+        _process_destination(ins.dst_reg, ins.secondary_dst_reg, False, True, vsh_ins)
     else:
-        _process_destination(ins.dst_reg, ilu, mac, vsh_ins)
+        _process_destination(ins.dst_reg, ins.secondary_dst_reg, ilu, mac, vsh_ins)
 
     _process_source(ins, ilu, mac, vsh_ins)
 

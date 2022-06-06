@@ -127,9 +127,10 @@ class VshInstruction:
     """Models nv2a vertex shader machine code."""
 
     def __init__(self, empty_final=False):
-        self._b = _B()
-        self._c = _C()
-        self._d = _D()
+        self._b: _B
+        self._c: _C
+        self._d: _D
+        self._set_empty()
 
         if empty_final:
             self.final = True
@@ -160,12 +161,15 @@ class VshInstruction:
             self.out_mux = OMUX_MAC
             self.out_o_or_c = OUTPUT_O
 
-    def set_empty_final(self):
-        """Sets this instruction to a NOP with the FINAL flag set."""
+    def _set_empty(self):
         zero = bytes(b"\0" * 4)
         self._b = _B.from_buffer_copy(zero)
         self._c = _C.from_buffer_copy(zero)
         self._d = _D.from_buffer_copy(zero)
+
+    def set_empty_final(self):
+        """Sets this instruction to a NOP with the FINAL flag set."""
+        self._set_empty()
         self.final = True
 
     def set_values(self, values: List[int]):
@@ -604,8 +608,8 @@ class VshInstruction:
 
         return [src_a, src_b, src_c]
 
-    def _disassemble_outputs(self) -> Tuple[str, str]:
-        """Returns a pair of destination strings for (mac, ilu)."""
+    def _disassemble_outputs(self) -> Tuple[List[str], List[str]]:
+        """Returns a pair of lists of destination strings for (mac, ilu)."""
 
         mac_temp_destination = ""
         ilu_temp_destination = ""
@@ -627,7 +631,9 @@ class VshInstruction:
             else:
                 ilu_temp_destination = f"{dst_temp_reg_name}{ilu_output_mask}"
 
-        out_destination = ""
+        mac = []
+        ilu = []
+
         if self.out_o_mask:
             dst_output_mask = WRITEMASK_NAME[_VSH_MASK_TO_WRITEMASK[self.out_o_mask]]
             if not dst_output_mask:
@@ -642,24 +648,23 @@ class VshInstruction:
                 dst_output_name = f"c[{dst_output_index}]"
 
             out_destination = f"{dst_output_name}{dst_output_mask}"
+            if self.out_mux == OMUX_MAC:
+                mac.append(out_destination)
+            else:
+                assert self.out_mux == OMUX_ILU
+                ilu.append(out_destination)
 
-        mac = mac_temp_destination
-        ilu = ilu_temp_destination
+        if mac_temp_destination:
+            mac.append(mac_temp_destination)
+        if ilu_temp_destination:
+            ilu.append(ilu_temp_destination)
 
         # ARL implicitly writes to A0 and implicitly uses an "x" write mask.
         if self.mac == self.mac == MAC.MAC_ARL:
-            mac = f"{DESTINATION_REGISTER_TO_NAME_MAP_SHORT[OutputRegisters.REG_A0]}"
+            assert not mac
+            mac = [f"{DESTINATION_REGISTER_TO_NAME_MAP_SHORT[OutputRegisters.REG_A0]}"]
 
-        # It should not be possible to flag both temp outputs and a destination reg.
-        assert not (mac and ilu and out_destination)
-
-        if not out_destination:
-            return mac, ilu
-
-        # Check to see if the MAC command writes to a temp register or is NOP.
-        if mac or not self.mac:
-            return mac, out_destination
-        return out_destination, ilu
+        return mac, ilu
 
     def _disassemble_operands(self) -> Tuple[str, str]:
         """Returns a pair of operands for (mac, ilu)."""
@@ -696,22 +701,22 @@ class VshInstruction:
 
     def disassemble_to_dict(self) -> dict:
         mac, ilu = self._disassemble_operands()
-        mac_output, ilu_output = self._disassemble_outputs()
+        mac_outputs, ilu_outputs = self._disassemble_outputs()
         inputs = self._dissasemble_inputs()
 
-        def _build(mnemonic, output, inputs):
+        def _build(mnemonic, outputs, inputs):
             return {
                 "mnemonic": mnemonic,
-                "output": output,
+                "outputs": outputs,
                 "inputs": inputs,
             }
 
         ret = {}
         if mac:
-            ret["mac"] = _build(mac, mac_output, self._filter_mac_inputs(inputs))
+            ret["mac"] = _build(mac, mac_outputs, self._filter_mac_inputs(inputs))
 
         if ilu:
-            ret["ilu"] = _build(ilu, ilu_output, [inputs[2]])
+            ret["ilu"] = _build(ilu, ilu_outputs, [inputs[2]])
 
         return ret
 
@@ -723,20 +728,22 @@ class VshInstruction:
         mac = info.get("mac")
         if mac:
             mnemonic = mac["mnemonic"]
-            output = mac["output"]
+            outputs = mac["outputs"]
             inputs = mac["inputs"]
 
-            mac_str = f"{mnemonic} {output}, " + ", ".join(inputs)
-            ret.append(mac_str)
+            for output in outputs:
+                mac_str = f"{mnemonic} {output}, " + ", ".join(inputs)
+                ret.append(mac_str)
 
         ilu = info.get("ilu")
         if ilu:
             mnemonic = ilu["mnemonic"]
-            output = ilu["output"]
+            outputs = ilu["outputs"]
             inputs = ilu["inputs"]
 
-            ilu_str = f"{mnemonic} {output}, " + ", ".join(inputs)
-            ret.append(ilu_str)
+            for output in outputs:
+                ilu_str = f"{mnemonic} {output}, " + ", ".join(inputs)
+                ret.append(ilu_str)
 
         return " + ".join(ret)
 

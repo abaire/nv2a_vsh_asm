@@ -9,6 +9,7 @@
 from typing import List
 import unittest
 
+from nv2avsh.nv2a_vsh_asm import encoding_visitor
 from nv2avsh.nv2a_vsh_asm.vsh_encoder import *
 from nv2avsh.nv2a_vsh_asm.vsh_instruction import vsh_diff_instructions
 
@@ -28,7 +29,7 @@ class VSHEncoderTestCase(unittest.TestCase):
             RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_DIFFUSE
         )
         src = SourceRegister(RegisterFile.PROGRAM_INPUT, InputRegisters.REG_DIFFUSE)
-        program.append(Instruction(Opcode.OPCODE_MOV, dst, src))
+        program.append(Instruction(Opcode.OPCODE_MOV, output=dst, src_a=src))
 
         results = encode(program)
         self._assert_final_marker(results)
@@ -47,7 +48,7 @@ class VSHEncoderTestCase(unittest.TestCase):
             InputRegisters.V0,
             make_swizzle(SWIZZLE_Z, SWIZZLE_W),
         )
-        program.append(Instruction(Opcode.OPCODE_MOV, dst, src))
+        program.append(Instruction(Opcode.OPCODE_MOV, output=dst, src_a=src))
 
         results = encode(program)
         self._assert_final_marker(results)
@@ -64,7 +65,7 @@ class VSHEncoderTestCase(unittest.TestCase):
         src = SourceRegister(
             RegisterFile.PROGRAM_TEMPORARY, 0, make_swizzle(SWIZZLE_X, SWIZZLE_Y)
         )
-        program.append(Instruction(Opcode.OPCODE_MOV, dst, src))
+        program.append(Instruction(Opcode.OPCODE_MOV, output=dst, src_a=src))
 
         results = encode(program)
         self._assert_final_marker(results)
@@ -80,7 +81,7 @@ class VSHEncoderTestCase(unittest.TestCase):
         src = SourceRegister(
             RegisterFile.PROGRAM_INPUT, InputRegisters.V0, make_swizzle(SWIZZLE_W)
         )
-        program.append(Instruction(Opcode.OPCODE_RCP, dst, src))
+        program.append(Instruction(Opcode.OPCODE_RCP, output=dst, src_a=src))
 
         results = encode(program)
         self._assert_final_marker(results)
@@ -116,7 +117,7 @@ class VSHEncoderTestCase(unittest.TestCase):
         src_b = SourceRegister(
             RegisterFile.PROGRAM_ENV_PARAM, 96, make_swizzle(SWIZZLE_X)
         )
-        program.append(Instruction(Opcode.OPCODE_MUL, dst, src_a, src_b))
+        program.append(Instruction(Opcode.OPCODE_MUL, dst, src_a=src_a, src_b=src_b))
 
         results = encode(program)
         self._assert_final_marker(results)
@@ -134,7 +135,7 @@ class VSHEncoderTestCase(unittest.TestCase):
         src_b = SourceRegister(
             RegisterFile.PROGRAM_ENV_PARAM, 97, make_swizzle(SWIZZLE_W)
         )
-        program.append(Instruction(Opcode.OPCODE_ADD, dst, src_a, src_b))
+        program.append(Instruction(Opcode.OPCODE_ADD, dst, src_a=src_a, src_b=src_b))
 
         results = encode(program)
         self._assert_final_marker(results)
@@ -150,7 +151,7 @@ class VSHEncoderTestCase(unittest.TestCase):
         )
         src_a = SourceRegister(RegisterFile.PROGRAM_INPUT, InputRegisters.V0)
         src_b = SourceRegister(RegisterFile.PROGRAM_ENV_PARAM, 96)
-        program.append(Instruction(Opcode.OPCODE_DP4, dst, src_a, src_b))
+        program.append(Instruction(Opcode.OPCODE_DP4, dst, src_a=src_a, src_b=src_b))
 
         results = encode(program)
         self._assert_final_marker(results)
@@ -171,7 +172,9 @@ class VSHEncoderTestCase(unittest.TestCase):
         src_c = SourceRegister(
             RegisterFile.PROGRAM_TEMPORARY, 0, make_swizzle(SWIZZLE_X)
         )
-        program.append(Instruction(Opcode.OPCODE_MAD, dst, src_a, src_b, src_c))
+        program.append(
+            Instruction(Opcode.OPCODE_MAD, dst, src_a=src_a, src_b=src_b, src_c=src_c)
+        )
 
         results = encode(program)
         self._assert_final_marker(results)
@@ -193,7 +196,13 @@ class VSHEncoderTestCase(unittest.TestCase):
         )
 
         ins = Instruction(
-            Opcode.OPCODE_MOV, dst, src_a, None, src_c, Opcode.OPCODE_RCP, ilu_dst
+            Opcode.OPCODE_MOV,
+            dst,
+            src_a=src_a,
+            src_b=None,
+            src_c=src_c,
+            paired_ilu_opcode=Opcode.OPCODE_RCP,
+            paired_ilu_dst_reg=ilu_dst,
         )
 
         program.append(ins)
@@ -216,7 +225,13 @@ class VSHEncoderTestCase(unittest.TestCase):
         )
 
         ins = Instruction(
-            Opcode.OPCODE_MOV, dst, src_a, None, src_c, Opcode.OPCODE_RCC, ilu_dst
+            Opcode.OPCODE_MOV,
+            dst,
+            src_a=src_a,
+            src_b=None,
+            src_c=src_c,
+            paired_ilu_opcode=Opcode.OPCODE_RCC,
+            paired_ilu_dst_reg=ilu_dst,
         )
 
         program.append(ins)
@@ -242,7 +257,13 @@ class VSHEncoderTestCase(unittest.TestCase):
         )
 
         ins = Instruction(
-            Opcode.OPCODE_MUL, dst, src_a, src_b, src_c, Opcode.OPCODE_RCC, ilu_dst
+            Opcode.OPCODE_MUL,
+            dst,
+            src_a=src_a,
+            src_b=src_b,
+            src_c=src_c,
+            paired_ilu_opcode=Opcode.OPCODE_RCC,
+            paired_ilu_dst_reg=ilu_dst,
         )
 
         program.append(ins)
@@ -266,7 +287,13 @@ class VSHEncoderTestCase(unittest.TestCase):
         src_c = SourceRegister(RegisterFile.PROGRAM_INPUT, InputRegisters.V4)
 
         ins = Instruction(
-            Opcode.OPCODE_MUL, dst, src_a, src_b, src_c, Opcode.OPCODE_MOV, ilu_dst
+            Opcode.OPCODE_MUL,
+            dst,
+            src_a=src_a,
+            src_b=src_b,
+            src_c=src_c,
+            paired_ilu_opcode=Opcode.OPCODE_MOV,
+            paired_ilu_dst_reg=ilu_dst,
         )
 
         program.append(ins)
@@ -290,7 +317,13 @@ class VSHEncoderTestCase(unittest.TestCase):
         src_c = SourceRegister(RegisterFile.PROGRAM_INPUT, InputRegisters.V1)
 
         ins = Instruction(
-            Opcode.OPCODE_MOV, dst, src_a, src_b, src_c, Opcode.OPCODE_MOV, ilu_dst
+            Opcode.OPCODE_MOV,
+            dst,
+            src_a=src_a,
+            src_b=src_b,
+            src_c=src_c,
+            paired_ilu_opcode=Opcode.OPCODE_MOV,
+            paired_ilu_dst_reg=ilu_dst,
         )
 
         program.append(ins)
@@ -316,7 +349,13 @@ class VSHEncoderTestCase(unittest.TestCase):
         )
 
         ins = Instruction(
-            Opcode.OPCODE_MOV, dst, src_a, src_b, src_c, Opcode.OPCODE_MOV, ilu_dst
+            Opcode.OPCODE_MOV,
+            dst,
+            src_a=src_a,
+            src_b=src_b,
+            src_c=src_c,
+            paired_ilu_opcode=Opcode.OPCODE_MOV,
+            paired_ilu_dst_reg=ilu_dst,
         )
 
         program.append(ins)
@@ -340,7 +379,13 @@ class VSHEncoderTestCase(unittest.TestCase):
         src_c = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 5)
 
         ins = Instruction(
-            Opcode.OPCODE_DP3, dst, src_a, src_b, src_c, Opcode.OPCODE_MOV, ilu_dst
+            Opcode.OPCODE_DP3,
+            dst,
+            src_a=src_a,
+            src_b=src_b,
+            src_c=src_c,
+            paired_ilu_opcode=Opcode.OPCODE_MOV,
+            paired_ilu_dst_reg=ilu_dst,
         )
 
         program.append(ins)
@@ -358,7 +403,7 @@ class VSHEncoderTestCase(unittest.TestCase):
         src_b = SourceRegister(
             RegisterFile.PROGRAM_TEMPORARY, 10, SWIZZLE_XYZW, 0, True
         )
-        program.append(Instruction(Opcode.OPCODE_ADD, dst, src_a, src_b))
+        program.append(Instruction(Opcode.OPCODE_ADD, dst, src_a=src_a, src_b=src_b))
 
         results = encode(program)
         self._assert_final_marker(results)
@@ -381,13 +426,15 @@ class VSHEncoderTestCase(unittest.TestCase):
         src_c = SourceRegister(
             RegisterFile.PROGRAM_ENV_PARAM, 117, make_swizzle(SWIZZLE_W), 0, True
         )
-        program.append(Instruction(Opcode.OPCODE_MAD, dst, src_a, src_b, src_c))
+        program.append(
+            Instruction(Opcode.OPCODE_MAD, dst, src_a=src_a, src_b=src_b, src_c=src_c)
+        )
 
         results = encode(program)
         self._assert_final_marker(results)
         self.assertEqual(len(results), 2)
         self._assert_vsh([0x00000000, 0x008EA0AA, 0x05541FFC, 0x32000FF8], results[0])
-        # xemu decompiles this to the same isntruction
+        # xemu decompiles this to the same instruction
         # self._assert_vsh([0x00000000, 0x008EA0AA, 0x0554BFFD, 0x72000000], results[0])
 
     def test_mac_arl_ilu_mov(self):
@@ -409,6 +456,634 @@ class VSHEncoderTestCase(unittest.TestCase):
         diff = vsh_diff_instructions(expected, actual)
         if diff:
             raise self.failureException(diff)
+
+
+class VSHEncodingVisitorMergeOpsTestCase(unittest.TestCase):
+    """Tests the encoding_visitor._merge_mov_ops method."""
+
+    def test_merge_mov_ops_single(self):
+        operations = []
+
+        # MOV R1, R0
+        dst_ilu_temp = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 1)
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 0)
+        operations.append(
+            (Instruction(Opcode.OPCODE_MOV, dst_ilu_temp, src_a=src_a), "MOV R1, R0")
+        )
+
+        merged, error = encoding_visitor._merge_ops(operations)
+        self.assertEqual("", error)
+        self.assertEqual(operations[0], merged)
+
+    def test_merge_mov_ops_valid_pair(self):
+        operations = []
+
+        # MOV R1, R0
+        dst_ilu_temp = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 1)
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 0)
+        operations.append(
+            (Instruction(Opcode.OPCODE_MOV, dst_ilu_temp, src_a=src_a), "MOV R1, R0")
+        )
+
+        # MOV oPos, R0
+        dst_ilu_output = DestinationRegister(
+            RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_POS
+        )
+        operations.append(
+            (
+                Instruction(Opcode.OPCODE_MOV, dst_ilu_output, src_a=src_a),
+                "MOV oPos, R0",
+            )
+        )
+
+        merged, error = encoding_visitor._merge_ops(operations)
+        self.assertEqual("", error)
+
+        expected_op = Instruction(
+            Opcode.OPCODE_MOV,
+            dst_ilu_output,
+            secondary_output=dst_ilu_temp,
+            src_a=src_a,
+        )
+        self.assertEqual(expected_op, merged[0])
+
+        self.assertEqual("MOV oPos, R0 + MOV R1, R0", merged[1])
+
+    def test_merge_mov_ops_invalid_double_output(self):
+        operations = []
+
+        dst_ilu_temp = DestinationRegister(
+            RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_DIFFUSE
+        )
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 0)
+        operations.append(
+            (Instruction(Opcode.OPCODE_MOV, dst_ilu_temp, src_a=src_a), "MOV oD0, R0")
+        )
+
+        dst_ilu_output = DestinationRegister(
+            RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_POS
+        )
+        operations.append(
+            (
+                Instruction(Opcode.OPCODE_MOV, dst_ilu_output, src_a=src_a),
+                "MOV oPos, R0",
+            )
+        )
+
+        merged, error = encoding_visitor._merge_ops(operations)
+        self.assertEqual("operations both target output registers", error)
+
+    def test_merge_mov_ops_invalid_double_temporary(self):
+        operations = []
+
+        dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 1)
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 0)
+        operations.append(
+            (Instruction(Opcode.OPCODE_MOV, dst, src_a=src_a), "MOV R1, R0")
+        )
+
+        dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 10)
+        operations.append(
+            (
+                Instruction(Opcode.OPCODE_MOV, dst, src_a=src_a),
+                "MOV R10, R0",
+            )
+        )
+
+        merged, error = encoding_visitor._merge_ops(operations)
+        self.assertEqual("operations both target temporary registers", error)
+
+
+class VSHEncodingVisitorDistributeMovOpsTestCase(unittest.TestCase):
+    """Tests the encoding_visitor._distribute_mov_ops method."""
+
+    def test_distribute_three_movs_non_overlapping_inputs_fails(self):
+        operations = []
+
+        # MOV R1, R0
+        dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 1)
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 0)
+        operations.append(
+            (Instruction(Opcode.OPCODE_MOV, dst, src_a=src_a), "MOV R1, R0")
+        )
+
+        # MOV oPos, R2
+        dst = DestinationRegister(RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_POS)
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 2)
+        operations.append(
+            (
+                Instruction(Opcode.OPCODE_MOV, dst, src_a=src_a),
+                "MOV oPos, R2",
+            )
+        )
+
+        # MOV R7, R3
+        dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 7)
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 3)
+        operations.append(
+            (Instruction(Opcode.OPCODE_MOV, dst, src_a=src_a), "MOV R7, R3")
+        )
+
+        mac_ops = []
+        ilu_ops = []
+        error = encoding_visitor._distribute_mov_ops(operations, mac_ops, ilu_ops)
+        self.assertEqual("more than 2 distinct sets of inputs", error)
+
+    def test_distribute_two_movs_targeting_outputs_fails(self):
+        operations = []
+
+        # MOV oPos, R2
+        dst = DestinationRegister(RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_POS)
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 2)
+        operations.append(
+            (
+                Instruction(Opcode.OPCODE_MOV, dst, src_a=src_a),
+                "MOV oPos, R2",
+            )
+        )
+
+        # MOV oD0, R3
+        dst = DestinationRegister(
+            RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_DIFFUSE
+        )
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 3)
+        operations.append(
+            (Instruction(Opcode.OPCODE_MOV, dst, src_a=src_a), "MOV oD0, R3")
+        )
+
+        mac_ops = []
+        ilu_ops = []
+        error = encoding_visitor._distribute_mov_ops(operations, mac_ops, ilu_ops)
+        self.assertEqual("more than 1 MOV targets an output register", error)
+
+    def test_distribute_two_movs_targeting_non_r1_temporary_regs_fails(self):
+        operations = []
+
+        # MOV R3, R2
+        dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 3)
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 2)
+        operations.append(
+            (
+                Instruction(Opcode.OPCODE_MOV, dst, src_a=src_a),
+                "MOV R3, R2",
+            )
+        )
+
+        # MOV R7, R3
+        dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 7)
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 3)
+        operations.append(
+            (Instruction(Opcode.OPCODE_MOV, dst, src_a=src_a), "MOV R7, R3")
+        )
+
+        mac_ops = []
+        ilu_ops = []
+        error = encoding_visitor._distribute_mov_ops(operations, mac_ops, ilu_ops)
+        self.assertEqual("more than 1 MOV targets a non-R1 temporary register", error)
+
+    def test_distribute_two_movs_r1_temporary_regs_fails(self):
+        operations = []
+
+        # MOV R1, R2
+        dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 1)
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 2)
+        operations.append(
+            (
+                Instruction(Opcode.OPCODE_MOV, dst, src_a=src_a),
+                "MOV R1, R2",
+            )
+        )
+
+        # MOV R1, R3
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 3)
+        operations.append(
+            (Instruction(Opcode.OPCODE_MOV, dst, src_a=src_a), "MOV R1, R3")
+        )
+
+        mac_ops = []
+        ilu_ops = []
+        error = encoding_visitor._distribute_mov_ops(operations, mac_ops, ilu_ops)
+        self.assertEqual("more than 1 MOV targets R1", error)
+
+    def test_distribute_two_ilu_mov_non_r1_temporary_fails(self):
+        operations = []
+
+        # MOV R0, R2
+        dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 0)
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 2)
+        operations.append(
+            (
+                Instruction(Opcode.OPCODE_MOV, dst, src_a=src_a),
+                "MOV R0, R2",
+            )
+        )
+
+        # MUL R1, R3, R4
+        dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 1)
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 3)
+        src_b = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 4)
+        mac_ops = [
+            (
+                Instruction(Opcode.OPCODE_MOV, dst, src_a=src_a, src_b=src_b),
+                "MUL R1, R3, R4",
+            )
+        ]
+
+        ilu_ops = []
+        error = encoding_visitor._distribute_mov_ops(operations, mac_ops, ilu_ops)
+        self.assertEqual(
+            "ILU operation may not target non-R1 temporary registers", error
+        )
+
+    def _mul_r2(self):
+        dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 2)
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 8)
+        src_b = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, 9)
+        op = Instruction(Opcode.OPCODE_MUL, dst, src_a=src_a, src_b=src_b)
+        src = f"MUL R2, R8, R9"
+        return op, src
+
+    def _mov_r1(self, input_r: int = 0):
+        dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 1)
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, input_r)
+        op = Instruction(Opcode.OPCODE_MOV, dst, src_a=src_a)
+        src = f"MOV R1, R{input_r}"
+        return op, src
+
+    def _mov_opos(self, input_r: int = 0):
+        dst = DestinationRegister(RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_POS)
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, input_r)
+        op = Instruction(Opcode.OPCODE_MOV, dst, src_a=src_a)
+        src = f"MOV oPos, R{input_r}"
+        return op, src
+
+    def _mov_r2(self, input_r: int = 0):
+        dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 2)
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, input_r)
+        op = Instruction(Opcode.OPCODE_MOV, dst, src_a=src_a)
+        src = f"MOV R2, R{input_r}"
+        return op, src
+
+    def test_distribute_mac_r1_o(self):
+        r1 = self._mov_r1()
+        opos = self._mov_opos()
+
+        operations = [r1, opos]
+        mac_ops = []
+        ilu_ops = []
+        error = encoding_visitor._distribute_mov_ops(operations, mac_ops, ilu_ops)
+        self.assertEqual("", error)
+
+        self.assertEqual(1, len(mac_ops))
+        self.assertEqual(0, len(ilu_ops))
+
+        combined_op = opos[0]
+        combined_op.secondary_dst_reg = r1[0].dst_reg
+        self.assertEqual(combined_op, mac_ops[0][0])
+
+        combined_src = f"{opos[1]} + {r1[1]}"
+        self.assertEqual(combined_src, mac_ops[0][1])
+
+    def test_distribute_mac_r2_o(self):
+        r2 = self._mov_r2()
+        opos = self._mov_opos()
+
+        operations = [r2, opos]
+        mac_ops = []
+        ilu_ops = []
+        error = encoding_visitor._distribute_mov_ops(operations, mac_ops, ilu_ops)
+        self.assertEqual("", error)
+
+        self.assertEqual(1, len(mac_ops))
+        self.assertEqual(0, len(ilu_ops))
+
+        combined_op = opos[0]
+        combined_op.secondary_dst_reg = r2[0].dst_reg
+        self.assertEqual(combined_op, mac_ops[0][0])
+
+        combined_src = f"{opos[1]} + {r2[1]}"
+        self.assertEqual(combined_src, mac_ops[0][1])
+
+    def test_distribute_mac_o_ilu_r1(self):
+        r1 = self._mov_r1(5)
+        opos = self._mov_opos()
+
+        operations = [r1, opos]
+        mac_ops = []
+        ilu_ops = []
+        error = encoding_visitor._distribute_mov_ops(operations, mac_ops, ilu_ops)
+        self.assertEqual("", error)
+
+        self.assertEqual(1, len(mac_ops))
+        self.assertEqual(1, len(ilu_ops))
+
+        self.assertEqual(opos, mac_ops[0])
+        self.assertEqual(r1, ilu_ops[0])
+
+    def test_distribute_mac_r2_o_ilu_r1(self):
+        r1 = self._mov_r1(5)
+        r2 = self._mov_r2()
+        opos = self._mov_opos()
+
+        operations = [r1, r2, opos]
+        mac_ops = []
+        ilu_ops = []
+        error = encoding_visitor._distribute_mov_ops(operations, mac_ops, ilu_ops)
+        self.assertEqual("", error)
+
+        self.assertEqual(1, len(mac_ops))
+        self.assertEqual(1, len(ilu_ops))
+
+        combined_op = opos[0]
+        combined_op.secondary_dst_reg = r2[0].dst_reg
+        self.assertEqual(combined_op, mac_ops[0][0])
+
+        combined_src = f"{opos[1]} + {r2[1]}"
+        self.assertEqual(combined_src, mac_ops[0][1])
+
+        self.assertEqual(r1, ilu_ops[0])
+
+    def test_distribute_mac_r2_ilu_o(self):
+        r2 = self._mov_r2()
+        opos = self._mov_opos(5)
+
+        operations = [r2, opos]
+        mac_ops = []
+        ilu_ops = []
+        error = encoding_visitor._distribute_mov_ops(operations, mac_ops, ilu_ops)
+        self.assertEqual("", error)
+
+        self.assertEqual(1, len(mac_ops))
+        self.assertEqual(1, len(ilu_ops))
+
+        self.assertEqual(r2, mac_ops[0])
+        self.assertEqual(opos, ilu_ops[0])
+
+    def test_distribute_mac_r2_ilu_r1(self):
+        r2 = self._mov_r2()
+        r1 = self._mov_r1(5)
+
+        operations = [r2, r1]
+        mac_ops = []
+        ilu_ops = []
+        error = encoding_visitor._distribute_mov_ops(operations, mac_ops, ilu_ops)
+        self.assertEqual("", error)
+
+        self.assertEqual(1, len(mac_ops))
+        self.assertEqual(1, len(ilu_ops))
+
+        self.assertEqual(r2, mac_ops[0])
+        self.assertEqual(r1, ilu_ops[0])
+
+    def test_distribute_mac_r2_ilu_r1_o(self):
+        r2 = self._mov_r2()
+        r1 = self._mov_r1(5)
+        opos = self._mov_opos(5)
+
+        operations = [r2, r1, opos]
+        mac_ops = []
+        ilu_ops = []
+        error = encoding_visitor._distribute_mov_ops(operations, mac_ops, ilu_ops)
+        self.assertEqual("", error)
+
+        self.assertEqual(1, len(mac_ops))
+        self.assertEqual(1, len(ilu_ops))
+
+        self.assertEqual(r2, mac_ops[0])
+
+        combined_op = opos[0]
+        combined_op.secondary_dst_reg = r1[0].dst_reg
+        self.assertEqual(combined_op, ilu_ops[0][0])
+
+        combined_src = f"{opos[1]} + {r1[1]}"
+        self.assertEqual(combined_src, ilu_ops[0][1])
+
+    def test_distribute_mac_mul_ilu_o(self):
+        mul = self._mul_r2()
+        opos = self._mov_opos(5)
+        operations = [mul, opos]
+        mac_ops = []
+        ilu_ops = []
+        error = encoding_visitor._distribute_mov_ops(operations, mac_ops, ilu_ops)
+        self.assertEqual("", error)
+
+        self.assertEqual(1, len(mac_ops))
+        self.assertEqual(1, len(ilu_ops))
+
+        self.assertEqual(mul, mac_ops[0])
+        self.assertEqual(opos, ilu_ops[0])
+
+    def test_distribute_mac_mul_ilu_r1(self):
+        mul = self._mul_r2()
+        r1 = self._mov_r1(5)
+        operations = [mul, r1]
+        mac_ops = []
+        ilu_ops = []
+        error = encoding_visitor._distribute_mov_ops(operations, mac_ops, ilu_ops)
+        self.assertEqual("", error)
+
+        self.assertEqual(1, len(mac_ops))
+        self.assertEqual(1, len(ilu_ops))
+
+        self.assertEqual(mul, mac_ops[0])
+        self.assertEqual(r1, ilu_ops[0])
+
+    def test_distribute_mac_mul_ilu_r1_o(self):
+        mul = self._mul_r2()
+        r1 = self._mov_r1(5)
+        opos = self._mov_opos(5)
+        operations = [mul, r1, opos]
+        mac_ops = []
+        ilu_ops = []
+        error = encoding_visitor._distribute_mov_ops(operations, mac_ops, ilu_ops)
+        self.assertEqual("", error)
+
+        self.assertEqual(1, len(mac_ops))
+        self.assertEqual(1, len(ilu_ops))
+
+        self.assertEqual(mul, mac_ops[0])
+
+        combined_op = opos[0]
+        combined_op.secondary_dst_reg = r1[0].dst_reg
+        self.assertEqual(combined_op, ilu_ops[0][0])
+
+        combined_src = f"{opos[1]} + {r1[1]}"
+        self.assertEqual(combined_src, ilu_ops[0][1])
+
+
+class VSHEncoderCombinedOperationsTestCase(unittest.TestCase):
+    """Tests processing of combined MAC+ILU and multi-output operations."""
+
+    def _mul_r9(self, input_1_r: int = 0, input_2_r: int = 10):
+        dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 9)
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, input_1_r)
+        src_b = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, input_2_r)
+        return (
+            Instruction(Opcode.OPCODE_MUL, dst, src_a=src_a, src_b=src_b),
+            f"MUL R9, R{input_1_r}, R{input_2_r}",
+        )
+
+    def _mul_opos(self, input_1_r: int = 0, input_2_r: int = 10):
+        dst = DestinationRegister(RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_POS)
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, input_1_r)
+        src_b = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, input_2_r)
+        return (
+            Instruction(Opcode.OPCODE_MUL, dst, src_a=src_a, src_b=src_b),
+            f"MUL oPos, R{input_1_r}, R{input_2_r}",
+        )
+
+    def _add_r9(self, input_1_r: int = 0, input_2_r: int = 10):
+        dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 9)
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, input_1_r)
+        src_b = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, input_2_r)
+        return (
+            Instruction(Opcode.OPCODE_ADD, dst, src_a=src_a, src_b=src_b),
+            f"ADD R9, R{input_1_r}.wxz, R{input_2_r}",
+        )
+
+    def _add_opos(self, input_1_r: int = 0, input_2_r: int = 10):
+        dst = DestinationRegister(RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_POS)
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, input_1_r)
+        src_b = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, input_2_r)
+        return (
+            Instruction(Opcode.OPCODE_ADD, dst, src_a=src_a, src_b=src_b),
+            f"ADD oPos, R{input_1_r}.wxz, R{input_2_r}",
+        )
+
+    def _rsq_r1(self, input_r: int = 0):
+        dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 1)
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, input_r)
+        return Instruction(Opcode.OPCODE_RSQ, dst, src_a=src_a), f"RSQ R1, R{input_r}"
+
+    def _rsq_opos(self, input_r: int = 0):
+        dst = DestinationRegister(RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_POS)
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, input_r)
+        return Instruction(Opcode.OPCODE_RSQ, dst, src_a=src_a), f"RSQ oPos, R{input_r}"
+
+    def _rcp_r1(self, input_r: int = 0):
+        dst = DestinationRegister(RegisterFile.PROGRAM_TEMPORARY, 1)
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, input_r)
+        return Instruction(Opcode.OPCODE_RCP, dst, src_a=src_a), f"RCP R1, R{input_r}"
+
+    def _rcp_opos(self, input_r: int = 0):
+        dst = DestinationRegister(RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_POS)
+        src_a = SourceRegister(RegisterFile.PROGRAM_TEMPORARY, input_r)
+        return Instruction(Opcode.OPCODE_RCP, dst, src_a=src_a), f"RCP oPos, R{input_r}"
+
+    def test_double_mac_different_inputs_fails(self):
+        operations = [self._mul_r9(), self._mul_opos(5)]
+
+        with self.assertRaises(encoding_visitor.EncodingError) as err:
+            encoding_visitor.process_combined_operations(operations)
+        self.assertEqual(
+            "Conflicting MAC operations (operations have different inputs) at 0",
+            str(err.exception),
+        )
+
+    def test_conflicting_mac_ops_fails(self):
+        operations = [self._mul_r9(), self._add_opos()]
+
+        with self.assertRaises(encoding_visitor.EncodingError) as err:
+            encoding_visitor.process_combined_operations(operations)
+        self.assertEqual(
+            "Conflicting MAC operations (conflicting operations) at 0",
+            str(err.exception),
+        )
+
+    def test_double_ilu_different_inputs_fails(self):
+        operations = [self._rsq_r1(), self._rsq_opos(5)]
+
+        with self.assertRaises(encoding_visitor.EncodingError) as err:
+            encoding_visitor.process_combined_operations(operations)
+        self.assertEqual(
+            "Conflicting ILU operations (operations have different inputs) at 0",
+            str(err.exception),
+        )
+
+    def test_conflicting_ilu_ops_fails(self):
+        operations = [self._rsq_opos(), self._rcp_r1()]
+
+        with self.assertRaises(encoding_visitor.EncodingError) as err:
+            encoding_visitor.process_combined_operations(operations)
+        self.assertEqual(
+            "Conflicting ILU operations (conflicting operations) at 0",
+            str(err.exception),
+        )
+
+    def test_mul_r9_o(self):
+        r9 = self._mul_r9()
+        opos = self._mul_opos()
+        operations = [r9, opos]
+        result = encoding_visitor.process_combined_operations(operations)
+
+        combined_op = opos[0]
+        combined_op.secondary_dst_reg = r9[0].dst_reg
+        self.assertEqual(combined_op, result[0])
+
+        combined_src = f"{opos[1]} + {r9[1]}"
+        self.assertEqual(combined_src, result[1])
+
+    def test_rcp_r9_o(self):
+        r1 = self._rcp_r1()
+        opos = self._rcp_opos()
+        operations = [r1, opos]
+        result = encoding_visitor.process_combined_operations(operations)
+
+        combined_op = opos[0]
+        combined_op.secondary_dst_reg = r1[0].dst_reg
+        self.assertEqual(combined_op, result[0])
+
+        combined_src = f"{opos[1]} + {r1[1]}"
+        self.assertEqual(combined_src, result[1])
+
+    def test_mul_rcp(self):
+        r1 = self._rcp_r1()
+        opos = self._rcp_opos()
+        r9 = self._mul_r9()
+        operations = [r1, opos, r9]
+        result = encoding_visitor.process_combined_operations(operations)
+
+        combined_op = r9[0]
+
+        combined_op.paired_ilu_opcode = opos[0].opcode
+        combined_op.paired_ilu_dst_reg = opos[0].dst_reg
+        combined_op.paired_ilu_secondary_dst_reg = r1[0].dst_reg
+        combined_op.src_reg[2] = opos[0].src_reg[0]
+        self.assertEqual(combined_op, result[0])
+
+        combined_src = f"{opos[1]} + {r1[1]}"
+        self.assertEqual(f"{r9[1]} + {combined_src}", result[1])
+
+    def test_add_rcp_with_different_c_input_fails(self):
+        r1 = self._rcp_r1()
+        opos = self._rcp_opos()
+        r9 = self._add_r9(input_2_r=4)
+        operations = [r1, opos, r9]
+
+        with self.assertRaises(encoding_visitor.EncodingError) as err:
+            encoding_visitor.process_combined_operations(operations)
+        self.assertEqual(
+            "Invalid instruction pairing (MAC operation uses input C which does not match ILU input)",
+            str(err.exception),
+        )
+
+    def test_add_rcp_with_same_c_input(self):
+        r1 = self._rcp_r1()
+        opos = self._rcp_opos()
+        r9 = self._add_r9(input_1_r=10, input_2_r=0)
+        operations = [r1, opos, r9]
+        result = encoding_visitor.process_combined_operations(operations)
+
+        combined_op = r9[0]
+
+        combined_op.paired_ilu_opcode = opos[0].opcode
+        combined_op.paired_ilu_dst_reg = opos[0].dst_reg
+        combined_op.paired_ilu_secondary_dst_reg = r1[0].dst_reg
+        combined_op.src_reg[2] = opos[0].src_reg[0]
+        self.assertEqual(combined_op, result[0])
+
+        combined_src = f"{opos[1]} + {r1[1]}"
+        self.assertEqual(f"{r9[1]} + {combined_src}", result[1])
 
 
 if __name__ == "__main__":
