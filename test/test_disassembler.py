@@ -92,7 +92,7 @@ class DisassemblerTestCase(unittest.TestCase):
 
         _test(
             "MUL oPos.xyz, R12.xyz, c[58].xyz",
-            [0x00000000, 0x0047401A, 0xC4355800, 0x20A0E800],
+            [0x00000000, 0x0047401A, 0xC434186C, 0x2070E800],
         )
 
 
