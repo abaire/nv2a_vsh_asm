@@ -262,6 +262,14 @@ class VSHAssemblerTestCase(unittest.TestCase):
         self.assertEqual(len(results), 2)
         self._assert_vsh([0x00000000, 0x00C1481B, 0x0836186C, 0x2070F078], results[0])
 
+    def test_uniform_matrix_output_bare2(self):
+        asm = Assembler("#output matrix4 188\n" "mov #output[0], v3")
+        asm.assemble()
+        results = asm.output
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x0020061B, 0x0836106C, 0x2070F5E0], results[0])
+
     def test_paired(self):
         asm = Assembler("MUL R2.xyzw, R1, c[0] + MOV oD1.xyzw, v4")
         asm.assemble()
