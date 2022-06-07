@@ -15,6 +15,7 @@ from nv2avsh.grammar.vsh.VshVisitor import VshVisitor
 from . import vsh_encoder
 from . import vsh_encoder_defs
 from . import vsh_instruction
+from .encoding_error import EncodingError
 
 _DESTINATION_MASK_LOOKUP = {
     ".x": vsh_encoder.WRITEMASK_X,
@@ -125,12 +126,6 @@ _UNIFORM_TYPE_TO_SIZE = {
     VshLexer.TYPE_VECTOR: 1,
     VshLexer.TYPE_MATRIX4: 4,
 }
-
-
-class EncodingError(Exception):
-    """Represents a fatal error during encoding."""
-
-    pass
 
 
 class _Uniform:

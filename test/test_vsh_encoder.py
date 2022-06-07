@@ -21,6 +21,32 @@ class VSHEncoderTestCase(unittest.TestCase):
         results = encode([])
         self.assertEqual([], results)
 
+    def test_incompatible_constant_inputs_fails(self):
+        # ADD oPos, c[12], c[13]
+        dst = DestinationRegister(RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_POS)
+        src_a = SourceRegister(RegisterFile.PROGRAM_ENV_PARAM, 12)
+        src_b = SourceRegister(RegisterFile.PROGRAM_ENV_PARAM, 13)
+        program = [Instruction(Opcode.OPCODE_ADD, dst, src_a=src_a, src_b=src_b)]
+
+        with self.assertRaises(encoding_visitor.EncodingError) as err:
+            encode(program)
+        self.assertEqual(
+            "Operation reads from more than one C register (c[12] and c[13])",
+            str(err.exception),
+        )
+
+    def test_compatible_constant_inputs(self):
+        # ADD oPos, c[12], c[12]
+        dst = DestinationRegister(RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_POS)
+        src_a = SourceRegister(RegisterFile.PROGRAM_ENV_PARAM, 12)
+        src_b = src_a
+        program = [Instruction(Opcode.OPCODE_ADD, dst, src_a=src_a, src_b=src_b)]
+
+        results = encode(program)
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x0061801B, 0x0C36106C, 0x3070F800], results[0])
+
     def test_mov_out_in_unswizzled(self):
         program = []
 

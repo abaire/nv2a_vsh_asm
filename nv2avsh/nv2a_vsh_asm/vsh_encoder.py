@@ -40,6 +40,7 @@ from typing import List, Optional, Tuple
 
 from . import vsh_instruction
 from .vsh_encoder_defs import *
+from .encoding_error import EncodingError
 
 
 class Opcode(enum.Enum):
@@ -318,7 +319,7 @@ def _process_opcode(
             out.mac = MAC.MAC_ADD
             out.c_negate = True
             mac = True
-            raise Exception("TODO: xor negated args")
+            raise EncodingError("TODO: xor negated args")
 
         elif opcode == Opcode.OPCODE_MAD:
             out.mac = MAC.MAC_MAD
@@ -385,7 +386,7 @@ def _process_opcode(
             ilu = True
 
         else:
-            raise Exception(f"Invalid opcode for instruction {ins}")
+            raise EncodingError(f"Invalid opcode for instruction {ins}")
 
         return ilu, mac
 
@@ -393,11 +394,11 @@ def _process_opcode(
     if ins.paired_ilu_opcode:
         add_ilu, add_mac = _set(ins.paired_ilu_opcode, True)
         if ilu and add_ilu:
-            raise Exception(
+            raise EncodingError(
                 "Paired instructions {ins.opcode} + {ins.paired_opcode} both use the ILU."
             )
         if mac and add_mac:
-            raise Exception(
+            raise EncodingError(
                 "Paired instructions {ins.opcode} + {ins.paired_opcode} both use the MAC."
             )
         ilu = True
@@ -454,7 +455,7 @@ def _process_destination(
             # The destination is implied by the ARL operand, so nothing needs to be set.
             return
 
-        raise Exception(f"Unsupported destination register {reg}.")
+        raise EncodingError(f"Unsupported destination register {reg}.")
 
     _process(dst_reg)
     if secondary_dst_reg:
@@ -477,6 +478,7 @@ def _process_source(
         ins.src_reg[2] = ins.src_reg[1]
         ins.src_reg[1] = None
 
+    c_reg_index = None
     for i, reg in enumerate(ins.src_reg):
         if not reg:
             continue
@@ -490,11 +492,16 @@ def _process_source(
         elif reg.file == RegisterFile.PROGRAM_ENV_PARAM:
             vsh_ins.set_mux_field(i, PARAM_C)
             vsh_ins.const_reg = reg.index
+            if c_reg_index is not None and c_reg_index != reg.index:
+                raise EncodingError(
+                    f"Operation reads from more than one C register (c[{c_reg_index}] and c[{reg.index}])"
+                )
+            c_reg_index = reg.index
         elif reg.file == RegisterFile.PROGRAM_INPUT:
             vsh_ins.set_mux_field(i, PARAM_V)
             vsh_ins.input_reg = reg.index
         else:
-            raise Exception(f"Unsupported register type [{i}]{reg}")
+            raise EncodingError(f"Unsupported register type [{i}]{reg}")
 
         if reg.negate:
             vsh_ins.set_negate_field(i, True)
