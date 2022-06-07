@@ -126,6 +126,10 @@ class VSHParserTestCase(unittest.TestCase):
         self._parse("#test vector 12")
         self.assertTrue(self._error_listener.ok)
 
+    def test_uniform_output(self):
+        self._parse("mov #test, r1")
+        self.assertTrue(self._error_listener.ok)
+
     def test_r12(self):
         self._parse("mov r11, r12")
         self.assertTrue(self._error_listener.ok)

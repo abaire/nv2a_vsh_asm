@@ -105,6 +105,16 @@ class DisassemblerTestCase(unittest.TestCase):
             [0x00000000, 0x00EC401B, 0x64365800, 0x28002800],
         )
 
+    def test_disassembler_constant_register_output_no_explain(self):
+        def _test(expected, value):
+            result = disassemble.disassemble([value], False)
+            self.assertEqual([expected], result)
+
+        _test(
+            "DPH c[15].xy, v4, c[10]",
+            [0x00000000, 0x00C1481B, 0x0836186C, 0x2070C078],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

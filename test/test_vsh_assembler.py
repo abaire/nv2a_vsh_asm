@@ -214,6 +214,54 @@ class VSHAssemblerTestCase(unittest.TestCase):
         self.assertEqual(len(results), 2)
         self._assert_vsh([0x00000000, 0x00C1E81B, 0x0836186C, 0x20708848], results[0])
 
+    def test_uniform_vector_output_bare(self):
+        asm = Assembler("#test_vector vector 15\n" "DPH #test_vector, v4, c[10]")
+        asm.assemble()
+        results = asm.output
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x00C1481B, 0x0836186C, 0x2070F078], results[0])
+
+    def test_uniform_vector_output_indexed(self):
+        asm = Assembler("#test_vector vector 15\n" "DPH #test_vector[0], v4, c[10]")
+        asm.assemble()
+        results = asm.output
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x00C1481B, 0x0836186C, 0x2070F078], results[0])
+
+    def test_uniform_vector_output_bare_swizzle(self):
+        asm = Assembler("#test_vector vector 15\n" "DPH #test_vector.xy, v4, c[10]")
+        asm.assemble()
+        results = asm.output
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x00C1481B, 0x0836186C, 0x2070C078], results[0])
+
+    def test_uniform_vector_output_indexed_swizzle(self):
+        asm = Assembler("#test_vector vector 15\n" "DPH #test_vector[0].xy, v4, c[10]")
+        asm.assemble()
+        results = asm.output
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x00C1481B, 0x0836186C, 0x2070C078], results[0])
+
+    def test_uniform_matrix_output_bare(self):
+        asm = Assembler("#test_matrix matrix4 15\n" "DPH #test_matrix, v4, c[10]")
+        asm.assemble()
+        results = asm.output
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x00C1481B, 0x0836186C, 0x2070F078], results[0])
+
+    def test_uniform_matrix_output_indexed(self):
+        asm = Assembler("#test_matrix matrix4 14\n" "DPH #test_matrix[1], v4, c[10]")
+        asm.assemble()
+        results = asm.output
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x00C1481B, 0x0836186C, 0x2070F078], results[0])
+
     def test_paired(self):
         asm = Assembler("MUL R2.xyzw, R1, c[0] + MOV oD1.xyzw, v4")
         asm.assemble()

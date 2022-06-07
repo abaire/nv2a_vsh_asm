@@ -608,7 +608,13 @@ class EncodingVisitor(VshVisitor):
         return self._process_output(target, mask)
 
     def visitP_output(self, ctx: VshParser.P_outputContext):
-        target = ctx.children[0].symbol
+        operands = self.visitChildren(ctx)
+        if operands:
+            assert len(operands) == 1
+            target = operands[0]
+            assert target.type == _REG_CONSTANT
+        else:
+            target = ctx.children[0].symbol
         mask = None
         if len(ctx.children) > 1:
             mask = ctx.children[1].symbol
@@ -709,6 +715,17 @@ class EncodingVisitor(VshVisitor):
                 mask,
             )
 
+        if target.type == _REG_CONSTANT:
+            if target.is_relative:
+                # TODO: Check if this is supported in the HW.
+                # Then implement or update grammar to disallow.
+                raise EncodingError(f"Unsupported write to relative constant register.")
+            return vsh_encoder.DestinationRegister(
+                vsh_encoder.RegisterFile.PROGRAM_ENV_PARAM,
+                target.index,
+                mask,
+            )
+
         raise EncodingError(
             f"Unsupported output target '{target.text}' at {target.line}:{target.column}"
         )
@@ -772,6 +789,9 @@ class EncodingVisitor(VshVisitor):
         ):
             name = vsh_encoder_defs.DESTINATION_REGISTER_TO_NAME_MAP[register.index]
             return f"{name}{mask}"
+
+        if register.file == vsh_encoder.RegisterFile.PROGRAM_ENV_PARAM:
+            return f"c[{register.index}]{mask}"
 
         raise EncodingError("TODO: Implement destination register prettification.")
 
