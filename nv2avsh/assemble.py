@@ -6,25 +6,34 @@ import argparse
 import logging
 import os
 import sys
-from typing import List
+from typing import List, Optional, Tuple
 
-from nv2avsh import nv2a_vsh_asm
+from nv2avsh.nv2a_vsh_asm.assembler import Assembler
 
 
-def assemble_to_c(source: str, explicit_final: bool = False) -> str:
+def assemble_to_c(
+    source: str, explicit_final: bool = False
+) -> Tuple[str, List[Assembler.ErrorContext]]:
     """Assembles the given source string, returning a C-style list of values."""
-    asm = nv2a_vsh_asm.Assembler(source)
-    asm.assemble(inline_final_flag=(not explicit_final))
+    asm = Assembler(source)
+    success = asm.assemble(inline_final_flag=(not explicit_final))
+    if not success:
+        return "", asm.errors
+
     results = asm.get_c_output()
-    return results
+    return results, []
 
 
-def assemble(source: str, explicit_final: bool = False) -> List[List[int]]:
+def assemble(
+    source: str, explicit_final: bool = False
+) -> Tuple[List[List[int]], List[Assembler.ErrorContext]]:
     """Assembles the given source string, returning a list of machine code entries."""
-    asm = nv2a_vsh_asm.Assembler(source)
-    asm.assemble(inline_final_flag=(not explicit_final))
+    asm = Assembler(source)
+    success = asm.assemble(inline_final_flag=(not explicit_final))
+    if not success:
+        return [], asm.errors
     results = asm.output
-    return results
+    return results, []
 
 
 def _main(args):
@@ -37,7 +46,15 @@ def _main(args):
 
     with open(args.input, "r") as infile:
         source = infile.read()
-    results = assemble_to_c(source, args.explicit_final)
+    results, errors = assemble_to_c(source, args.explicit_final)
+    if errors:
+        print(f"Assembly failed due to errors in {args.input}:", file=sys.stderr)
+        for error in errors:
+            print(
+                f"{args.input}:{error.line}:{error.column}: {error.message}",
+                file=sys.stderr,
+            )
+        return 1
 
     if args.output:
         with open(args.output, "w") as outfile:
