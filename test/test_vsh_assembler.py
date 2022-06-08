@@ -317,6 +317,14 @@ class VSHAssemblerTestCase(unittest.TestCase):
         # Ambiguous result, differs in unused fields.
         # self._assert_vsh([0x00000000, 0x00EC401B, 0x64365800, 0x28002800], results[0])
 
+    def test_paired_ilu_non_r1_temporary_writes_to_r1(self):
+        asm = Assembler("DP4 oPos.x, R6, c[96] + RSQ R10.x, R2.x")
+        asm.assemble()
+        results = asm.output
+        self._assert_final_marker(results)
+        self.assertEqual(len(results), 2)
+        self._assert_vsh([0x00000000, 0x08EC001B, 0x64361800, 0x90188800], results[0])
+
     def test_simple(self):
         all_input = os.path.join(_RESOURCE_PATH, "simple.vsh")
         with open(all_input) as infile:

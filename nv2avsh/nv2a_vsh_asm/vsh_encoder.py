@@ -35,7 +35,7 @@
 # pylint: disable=unused-wildcard-import
 # pylint: disable=wildcard-import
 
-import enum
+import sys
 from typing import List, Optional, Tuple
 
 from . import vsh_instruction
@@ -413,6 +413,7 @@ def _process_destination(
     ilu: bool,
     mac: bool,
     vsh_ins: vsh_instruction.VshInstruction,
+    is_paired: bool = False,
 ):
     if not dst_reg:
         assert not secondary_dst_reg
@@ -420,7 +421,15 @@ def _process_destination(
 
     def _process(reg: DestinationRegister):
         if reg.file == RegisterFile.PROGRAM_TEMPORARY:
-            vsh_ins.out_temp_reg = reg.index
+            if is_paired and ilu and reg.index != 1:
+                # TODO: Implement a better system for tracking warnings.
+                print(
+                    f"Warning: Paired ILU instruction writes to R{reg.index} but will silently be treated as an R1 write. Emitting R1 target.",
+                    file=sys.stderr,
+                )
+                vsh_ins.out_temp_reg = 1
+            else:
+                vsh_ins.out_temp_reg = reg.index
             if mac:
                 vsh_ins.out_mac_mask = VSH_MASK[reg.write_mask]
             elif ilu:
@@ -518,8 +527,11 @@ def _process_instruction(ins: Instruction, vsh_ins: vsh_instruction.VshInstructi
             True,
             False,
             vsh_ins,
+            True,
         )
-        _process_destination(ins.dst_reg, ins.secondary_dst_reg, False, True, vsh_ins)
+        _process_destination(
+            ins.dst_reg, ins.secondary_dst_reg, False, True, vsh_ins, True
+        )
     else:
         _process_destination(ins.dst_reg, ins.secondary_dst_reg, ilu, mac, vsh_ins)
 

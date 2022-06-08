@@ -68,16 +68,6 @@ class DisassemblerTestCase(unittest.TestCase):
             [0x00000000, 0x008EA0AA, 0x0554BFFD, 0x72000000],
         )
 
-        _test(
-            "MUL R2.xyzw, R1, c[0] + MOV oD1.xyzw, v4",
-            [0x00000000, 0x0240081B, 0x1436186C, 0x2F20F824],
-        )
-
-        _test(
-            "MOV oD0.xyzw, v3 + RCP R1.w, R1.w",
-            [0x00000000, 0x0420061B, 0x083613FC, 0x5011F818],
-        )
-
         _test("ARL A0, R0.x", [0x00000000, 0x01A00000, 0x0436106C, 0x20700FF8])
 
         _test(
@@ -93,6 +83,26 @@ class DisassemblerTestCase(unittest.TestCase):
         _test(
             "MUL oPos.xyz, R12.xyz, c[58].xyz",
             [0x00000000, 0x0047401A, 0xC434186C, 0x2070E800],
+        )
+
+    def test_disassembler_paired_no_explain(self):
+        def _test(expected, value):
+            result = disassemble.disassemble([value], False)
+            self.assertEqual([expected], result)
+
+        _test(
+            "MUL R2.xyzw, R1, c[0] + MOV oD1.xyzw, v4",
+            [0x00000000, 0x0240081B, 0x1436186C, 0x2F20F824],
+        )
+
+        _test(
+            "MOV oD0.xyzw, v3 + RCP R1.w, R1.w",
+            [0x00000000, 0x0420061B, 0x083613FC, 0x5011F818],
+        )
+
+        _test(
+            "DP4 oPos.x, R6, c[96] + RSQ R1.x, R2.x",
+            [0x00000000, 0x08EC001B, 0x64361800, 0x90A88800],
         )
 
     def test_disassembler_multi_output_no_explain(self):

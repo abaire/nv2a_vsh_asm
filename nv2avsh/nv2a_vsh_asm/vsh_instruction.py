@@ -625,8 +625,9 @@ class VshInstruction:
             if not ilu_output_mask:
                 ilu_output_mask = ".xyzw"
 
-            # If both MAC and ILU are writing to temp outputs, ILU must write to R1.
-            if mac_temp_destination:
+            # If this is a paired ILU instruction, ILU will write to R1 regardless of
+            # the encoded target.
+            if self.mac:
                 ilu_temp_destination = f"R1{ilu_output_mask}"
             else:
                 ilu_temp_destination = f"{dst_temp_reg_name}{ilu_output_mask}"
