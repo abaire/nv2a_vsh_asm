@@ -80,14 +80,14 @@ jobs:
           name: wheel-3.8
           path: dist
 
-      - uses: pypa/gh-action-pypi-publish@master
+      - uses: pypa/gh-action-pypi-publish@release/v1
         if: github.event.release.prerelease
         with:
           user: __token__
           password: ${{ secrets.TESTPYPI_API_TOKEN }}
           repository_url: https://test.pypi.org/legacy/
 
-      - uses: pypa/gh-action-pypi-publish@master
+      - uses: pypa/gh-action-pypi-publish@release/v1
         if: github.event.release.prerelease == false
         with:
           user: __token__
