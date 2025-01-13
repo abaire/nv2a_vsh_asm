@@ -1,6 +1,109 @@
 [build-system]
-requires = [
-    "setuptools>=42",
-    "setuptools-antlr",
-    "wheel"
+requires = ["hatchling>=1.11.1"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nv2a-vsh"
+dynamic = ["version"]
+description = 'Assembler/disassembler for the Xbox nv2a vertex shader'
+readme = "README.md"
+requires-python = ">=3.8"
+license = "Unlicense"
+keywords = ["nv2a", "vertex shader", "assembler", "xbox", "nvidia"]
+authors = [
+  { name = "Erik Abair", email = "erik.abair@bearbrains.work" },
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Topic :: Software Development :: Assemblers",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+  "antlr4-python3-runtime~=4.13.2"
+]
+
+[project.urls]
+Documentation = "https://github.com/abaire/nv2a_vsh_asm#readme"
+Issues = "https://github.com/abaire/nv2a_vsh_asm/issues"
+Source = "https://github.com/abaire/nv2a_vsh_asm"
+
+[project.scripts]
+nv2avsh = "nv2a_vsh:run_assemble"
+nv2avshd = "nv2a_vsh:run_disassemble"
+
+[tool.hatch.version]
+path = "src/nv2a_vsh/__about__.py"
+
+[tool.hatch.envs.types]
+type = "virtual"
+path = ".venv-mypy"
+extra-dependencies = [
+  "mypy>=1.0.0",
+]
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:src/nv2a_vsh tests}"
+
+[tool.mypy]
+exclude = [
+    "src/nv2a_vsh/grammar"
+]
+disable_error_code = ["import-untyped", "import-not-found"]
+
+[tool.coverage.run]
+source_pkgs = ["nv2a_vsh", "tests"]
+branch = true
+parallel = true
+omit = [
+  "src/nv2a_vsh/__about__.py",
+]
+
+[tool.coverage.paths]
+nv2a_vsh_asm = ["src/nv2a_vsh", "*/nv2a-vsh/src/nv2a_vsh"]
+tests = ["tests", "*/nv2a-vsh/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
+
+[tool.hatch.build]
+artifacts = [
+    "src/grammar/vsh/*",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nv2a_vsh"]
+include = [
+    "src/grammar/vsh/*",
+]
+
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "hatch_build_antlr.py"
+description = "Generate ANTLR4 parsers"
+dependencies = ["antlr4-tools"]
+
+[tool.hatch.envs.default]
+type = "virtual"
+path = "venv"
+
+[tool.pytest.ini_options]
+pythonpath = [
+  "src"
+]
+
+[tool.hatch.envs.hatch-test]
+type = "virtual"
+path = "venv"
+extra-dependencies = [
+  "pytest",
 ]

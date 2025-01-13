@@ -2,14 +2,17 @@
 
 """Disassembles nv2a vertex shader machine code."""
 
+# ruff: noqa: T201 `print` found
+
+from __future__ import annotations
+
 import argparse
 import logging
 import os
 import re
 import sys
-from typing import List
 
-from .nv2a_vsh_asm import vsh_instruction
+from nv2a_vsh.nv2a_vsh_asm import vsh_instruction
 
 _HEX_MATCH = r"0x[0-9a-fA-F]+"
 _VALUE_RE = re.compile(r"\s*(" + _HEX_MATCH + r")\s*,?", re.MULTILINE)
@@ -18,23 +21,23 @@ _VALUE_RE = re.compile(r"\s*(" + _HEX_MATCH + r")\s*,?", re.MULTILINE)
 def _parse_text_input(infile):
     content = infile.read()
 
-    values = []
-    for match in re.finditer(_VALUE_RE, content):
-        values.append(int(match.group(1), 16))
+    values = [int(match.group(1), 16) for match in re.finditer(_VALUE_RE, content)]
 
     num_values = len(values)
     if (num_values % 4) != 0:
-        raise Exception(f"Invalid input, {num_values} is not divisible by 4.")
+        msg = f"Invalid input, {num_values} is not divisible by 4."
+        raise ValueError(msg)
 
-    values = [values[start : start + 4] for start in range(0, num_values, 4)]
-    return values
+    return [values[start : start + 4] for start in range(0, num_values, 4)]
 
 
 def _parse_binary_input(infile):
-    raise Exception("TODO: Implement me.")
+    del infile
+    # TODO: Implement me.
+    raise NotImplementedError
 
 
-def disassemble(values: List[List[int]], explain: bool) -> List[str]:
+def disassemble(values: list[list[int]], *, explain: bool = True) -> list[str]:
     """Disassembles the given list of machine code entries, returning a list of menmonics."""
     ret = []
 
@@ -51,8 +54,8 @@ def disassemble(values: List[List[int]], explain: bool) -> List[str]:
 
 
 def disassemble_to_instructions(
-    values: List[List[int]],
-) -> List[vsh_instruction.VshInstruction]:
+    values: list[list[int]],
+) -> list[vsh_instruction.VshInstruction]:
     """Converts the given list of machine code instructions to VshInstruction instances."""
     ret = []
     for instruction in values:
@@ -77,7 +80,7 @@ def _main(args):
         with open(args.input, "rb") as infile:
             values = _parse_binary_input(infile)
 
-    results = disassemble(values, args.explain)
+    results = disassemble(values, explain=args.explain)
     results = "\n".join(results)
 
     if args.output:

@@ -4,115 +4,122 @@
 # pylint: disable=too-many-public-methods
 # pylint: disable=useless-return
 
+# Func/arg names are dictated by Antlr generated code.
+# ruff: noqa: N802 Function name should be lowercase
+# ruff: noqa: N803 Argument name should be lowercase
+# ruff: noqa: PLR2004 Magic value used in comparison
+
+from __future__ import annotations
+
 import collections
 import re
-from typing import List, Optional, Tuple
+from typing import TYPE_CHECKING
 
-from nv2avsh.grammar.vsh.VshLexer import VshLexer
-from nv2avsh.grammar.vsh.VshParser import VshParser
-from nv2avsh.grammar.vsh.VshVisitor import VshVisitor
+from nv2a_vsh.grammar.vsh.VshLexer import VshLexer
+from nv2a_vsh.grammar.vsh.VshVisitor import VshVisitor
+from nv2a_vsh.nv2a_vsh_asm import vsh_encoder, vsh_encoder_defs, vsh_instruction
+from nv2a_vsh.nv2a_vsh_asm.encoding_error import EncodingError
+from nv2a_vsh.nv2a_vsh_asm.vsh_encoder_defs import InputRegisters, OutputRegisters
 
-from . import vsh_encoder
-from . import vsh_encoder_defs
-from . import vsh_instruction
-from .encoding_error import EncodingError
+if TYPE_CHECKING:
+    from nv2a_vsh.grammar.vsh.VshParser import VshParser
 
 _DESTINATION_MASK_LOOKUP = {
-    ".x": vsh_encoder.WRITEMASK_X,
-    ".y": vsh_encoder.WRITEMASK_Y,
-    ".xy": vsh_encoder.WRITEMASK_XY,
-    ".z": vsh_encoder.WRITEMASK_Z,
-    ".xz": vsh_encoder.WRITEMASK_XZ,
-    ".yz": vsh_encoder.WRITEMASK_YZ,
-    ".xyz": vsh_encoder.WRITEMASK_XYZ,
-    ".w": vsh_encoder.WRITEMASK_W,
-    ".xw": vsh_encoder.WRITEMASK_XW,
-    ".yw": vsh_encoder.WRITEMASK_YW,
-    ".xyw": vsh_encoder.WRITEMASK_XYW,
-    ".zw": vsh_encoder.WRITEMASK_ZW,
-    ".xzw": vsh_encoder.WRITEMASK_XZW,
-    ".yzw": vsh_encoder.WRITEMASK_YZW,
-    ".xyzw": vsh_encoder.WRITEMASK_XYZW,
+    ".x": vsh_encoder_defs.WRITEMASK_X,
+    ".y": vsh_encoder_defs.WRITEMASK_Y,
+    ".xy": vsh_encoder_defs.WRITEMASK_XY,
+    ".z": vsh_encoder_defs.WRITEMASK_Z,
+    ".xz": vsh_encoder_defs.WRITEMASK_XZ,
+    ".yz": vsh_encoder_defs.WRITEMASK_YZ,
+    ".xyz": vsh_encoder_defs.WRITEMASK_XYZ,
+    ".w": vsh_encoder_defs.WRITEMASK_W,
+    ".xw": vsh_encoder_defs.WRITEMASK_XW,
+    ".yw": vsh_encoder_defs.WRITEMASK_YW,
+    ".xyw": vsh_encoder_defs.WRITEMASK_XYW,
+    ".zw": vsh_encoder_defs.WRITEMASK_ZW,
+    ".xzw": vsh_encoder_defs.WRITEMASK_XZW,
+    ".yzw": vsh_encoder_defs.WRITEMASK_YZW,
+    ".xyzw": vsh_encoder_defs.WRITEMASK_XYZW,
 }
 
 _NAME_TO_DESTINATION_REGISTER_MAP = {
-    "oPos": vsh_encoder.OutputRegisters.REG_POS,
-    "oD0": vsh_encoder.OutputRegisters.REG_DIFFUSE,
-    "oDiffuse": vsh_encoder.OutputRegisters.REG_DIFFUSE,
-    "oD1": vsh_encoder.OutputRegisters.REG_SPECULAR,
-    "oSpecular": vsh_encoder.OutputRegisters.REG_SPECULAR,
-    "oFog": vsh_encoder.OutputRegisters.REG_FOG_COORD,
-    "oPts": vsh_encoder.OutputRegisters.REG_POINT_SIZE,
-    "oB0": vsh_encoder.OutputRegisters.REG_BACK_DIFFUSE,
-    "oBackDiffuse": vsh_encoder.OutputRegisters.REG_BACK_DIFFUSE,
-    "oB1": vsh_encoder.OutputRegisters.REG_BACK_SPECULAR,
-    "oBackSpecular": vsh_encoder.OutputRegisters.REG_BACK_SPECULAR,
-    "oTex0": vsh_encoder.OutputRegisters.REG_TEX0,
-    "oT0": vsh_encoder.OutputRegisters.REG_TEX0,
-    "oTex1": vsh_encoder.OutputRegisters.REG_TEX1,
-    "oT1": vsh_encoder.OutputRegisters.REG_TEX1,
-    "oTex2": vsh_encoder.OutputRegisters.REG_TEX2,
-    "oT2": vsh_encoder.OutputRegisters.REG_TEX2,
-    "oTex3": vsh_encoder.OutputRegisters.REG_TEX3,
-    "oT3": vsh_encoder.OutputRegisters.REG_TEX3,
+    "oPos": vsh_encoder_defs.OutputRegisters.REG_POS,
+    "oD0": vsh_encoder_defs.OutputRegisters.REG_DIFFUSE,
+    "oDiffuse": vsh_encoder_defs.OutputRegisters.REG_DIFFUSE,
+    "oD1": vsh_encoder_defs.OutputRegisters.REG_SPECULAR,
+    "oSpecular": vsh_encoder_defs.OutputRegisters.REG_SPECULAR,
+    "oFog": vsh_encoder_defs.OutputRegisters.REG_FOG_COORD,
+    "oPts": vsh_encoder_defs.OutputRegisters.REG_POINT_SIZE,
+    "oB0": vsh_encoder_defs.OutputRegisters.REG_BACK_DIFFUSE,
+    "oBackDiffuse": vsh_encoder_defs.OutputRegisters.REG_BACK_DIFFUSE,
+    "oB1": vsh_encoder_defs.OutputRegisters.REG_BACK_SPECULAR,
+    "oBackSpecular": vsh_encoder_defs.OutputRegisters.REG_BACK_SPECULAR,
+    "oTex0": vsh_encoder_defs.OutputRegisters.REG_TEX0,
+    "oT0": vsh_encoder_defs.OutputRegisters.REG_TEX0,
+    "oTex1": vsh_encoder_defs.OutputRegisters.REG_TEX1,
+    "oT1": vsh_encoder_defs.OutputRegisters.REG_TEX1,
+    "oTex2": vsh_encoder_defs.OutputRegisters.REG_TEX2,
+    "oT2": vsh_encoder_defs.OutputRegisters.REG_TEX2,
+    "oTex3": vsh_encoder_defs.OutputRegisters.REG_TEX3,
+    "oT3": vsh_encoder_defs.OutputRegisters.REG_TEX3,
 }
 
 _SWIZZLE_LOOKUP = {
-    "x": vsh_encoder.SWIZZLE_X,
-    "y": vsh_encoder.SWIZZLE_Y,
-    "z": vsh_encoder.SWIZZLE_Z,
-    "w": vsh_encoder.SWIZZLE_W,
+    "x": vsh_encoder_defs.SWIZZLE_X,
+    "y": vsh_encoder_defs.SWIZZLE_Y,
+    "z": vsh_encoder_defs.SWIZZLE_Z,
+    "w": vsh_encoder_defs.SWIZZLE_W,
 }
 
 _SOURCE_REGISTER_LOOKUP = {
-    "v0": vsh_encoder.InputRegisters.V0,
-    "ipos": vsh_encoder.InputRegisters.V0,
-    "v1": vsh_encoder.InputRegisters.V1,
-    "iweight": vsh_encoder.InputRegisters.V1,
-    "v2": vsh_encoder.InputRegisters.V2,
-    "inormal": vsh_encoder.InputRegisters.V2,
-    "v3": vsh_encoder.InputRegisters.V3,
-    "idiffuse": vsh_encoder.InputRegisters.V3,
-    "v4": vsh_encoder.InputRegisters.V4,
-    "ispecular": vsh_encoder.InputRegisters.V4,
-    "v5": vsh_encoder.InputRegisters.V5,
-    "ifog": vsh_encoder.InputRegisters.V5,
-    "v6": vsh_encoder.InputRegisters.V6,
-    "ipts": vsh_encoder.InputRegisters.V6,
-    "v7": vsh_encoder.InputRegisters.V7,
-    "ibackdiffuse": vsh_encoder.InputRegisters.V7,
-    "v8": vsh_encoder.InputRegisters.V8,
-    "ibackspecular": vsh_encoder.InputRegisters.V8,
-    "v9": vsh_encoder.InputRegisters.V9,
-    "itex0": vsh_encoder.InputRegisters.V9,
-    "v10": vsh_encoder.InputRegisters.V10,
-    "itex1": vsh_encoder.InputRegisters.V10,
-    "v11": vsh_encoder.InputRegisters.V11,
-    "itex2": vsh_encoder.InputRegisters.V11,
-    "v12": vsh_encoder.InputRegisters.V12,
-    "itex3": vsh_encoder.InputRegisters.V12,
-    "v13": vsh_encoder.InputRegisters.V13,
-    "v14": vsh_encoder.InputRegisters.V14,
-    "v15": vsh_encoder.InputRegisters.V15,
+    "v0": vsh_encoder_defs.InputRegisters.V0,
+    "ipos": vsh_encoder_defs.InputRegisters.V0,
+    "v1": vsh_encoder_defs.InputRegisters.V1,
+    "iweight": vsh_encoder_defs.InputRegisters.V1,
+    "v2": vsh_encoder_defs.InputRegisters.V2,
+    "inormal": vsh_encoder_defs.InputRegisters.V2,
+    "v3": vsh_encoder_defs.InputRegisters.V3,
+    "idiffuse": vsh_encoder_defs.InputRegisters.V3,
+    "v4": vsh_encoder_defs.InputRegisters.V4,
+    "ispecular": vsh_encoder_defs.InputRegisters.V4,
+    "v5": vsh_encoder_defs.InputRegisters.V5,
+    "ifog": vsh_encoder_defs.InputRegisters.V5,
+    "v6": vsh_encoder_defs.InputRegisters.V6,
+    "ipts": vsh_encoder_defs.InputRegisters.V6,
+    "v7": vsh_encoder_defs.InputRegisters.V7,
+    "ibackdiffuse": vsh_encoder_defs.InputRegisters.V7,
+    "v8": vsh_encoder_defs.InputRegisters.V8,
+    "ibackspecular": vsh_encoder_defs.InputRegisters.V8,
+    "v9": vsh_encoder_defs.InputRegisters.V9,
+    "itex0": vsh_encoder_defs.InputRegisters.V9,
+    "v10": vsh_encoder_defs.InputRegisters.V10,
+    "itex1": vsh_encoder_defs.InputRegisters.V10,
+    "v11": vsh_encoder_defs.InputRegisters.V11,
+    "itex2": vsh_encoder_defs.InputRegisters.V11,
+    "v12": vsh_encoder_defs.InputRegisters.V12,
+    "itex3": vsh_encoder_defs.InputRegisters.V12,
+    "v13": vsh_encoder_defs.InputRegisters.V13,
+    "v14": vsh_encoder_defs.InputRegisters.V14,
+    "v15": vsh_encoder_defs.InputRegisters.V15,
 }
 
 _SOURCE_REGISTER_TO_NAME_MAP = {
-    vsh_encoder.InputRegisters.V0: "v0",
-    vsh_encoder.InputRegisters.V1: "v1",
-    vsh_encoder.InputRegisters.V2: "v2",
-    vsh_encoder.InputRegisters.V3: "v3",
-    vsh_encoder.InputRegisters.V4: "v4",
-    vsh_encoder.InputRegisters.V5: "v5",
-    vsh_encoder.InputRegisters.V6: "v6",
-    vsh_encoder.InputRegisters.V7: "v7",
-    vsh_encoder.InputRegisters.V8: "v8",
-    vsh_encoder.InputRegisters.V9: "v9",
-    vsh_encoder.InputRegisters.V10: "v10",
-    vsh_encoder.InputRegisters.V11: "v11",
-    vsh_encoder.InputRegisters.V12: "v12",
-    vsh_encoder.InputRegisters.V13: "v13",
-    vsh_encoder.InputRegisters.V14: "v14",
-    vsh_encoder.InputRegisters.V15: "v15",
+    vsh_encoder_defs.InputRegisters.V0: "v0",
+    vsh_encoder_defs.InputRegisters.V1: "v1",
+    vsh_encoder_defs.InputRegisters.V2: "v2",
+    vsh_encoder_defs.InputRegisters.V3: "v3",
+    vsh_encoder_defs.InputRegisters.V4: "v4",
+    vsh_encoder_defs.InputRegisters.V5: "v5",
+    vsh_encoder_defs.InputRegisters.V6: "v6",
+    vsh_encoder_defs.InputRegisters.V7: "v7",
+    vsh_encoder_defs.InputRegisters.V8: "v8",
+    vsh_encoder_defs.InputRegisters.V9: "v9",
+    vsh_encoder_defs.InputRegisters.V10: "v10",
+    vsh_encoder_defs.InputRegisters.V11: "v11",
+    vsh_encoder_defs.InputRegisters.V12: "v12",
+    vsh_encoder_defs.InputRegisters.V13: "v13",
+    vsh_encoder_defs.InputRegisters.V14: "v14",
+    vsh_encoder_defs.InputRegisters.V15: "v15",
 }
 
 
@@ -139,7 +146,7 @@ class _Uniform:
 
 
 class _ConstantRegister:
-    def __init__(self, index, is_relative=False):
+    def __init__(self, index, *, is_relative=False):
         self.index = index
         self.is_relative = is_relative
 
@@ -150,8 +157,8 @@ class _ConstantRegister:
 
 
 def _merge_ops(
-    ops: List[Tuple[vsh_encoder.Instruction, str]]
-) -> Tuple[Optional[Tuple[vsh_encoder.Instruction, str]], str]:
+    ops: list[tuple[vsh_encoder.Instruction, str]],
+) -> tuple[tuple[vsh_encoder.Instruction, str] | None, str]:
     """Merges the given list of one or two instructions into a single instruction or error message."""
     if len(ops) == 1:
         return ops[0], ""
@@ -164,15 +171,24 @@ def _merge_ops(
 
     # Reorder such that the temporary target comes last.
     op = ops[0][0]
+    if not op.dst_reg:
+        msg = "op.dst_reg must be valid"
+        raise ValueError(msg)
     if op.dst_reg.targets_temporary:
         ops = [ops[1], ops[0]]
 
     # Ensure that there is one output and one temp.
     output_op = ops[0][0]
+    if not output_op.dst_reg:
+        msg = "output_op.dst_reg must be valid"
+        raise ValueError(msg)
     if output_op.dst_reg.targets_temporary:
         return None, "operations both target temporary registers"
 
     temp_op = ops[1][0]
+    if not temp_op.dst_reg:
+        msg = "temp_op.dst_reg must be valid"
+        raise ValueError(msg)
     if not temp_op.dst_reg.targets_temporary:
         return None, "operations both target output registers"
 
@@ -182,9 +198,7 @@ def _merge_ops(
     return (output_op, merged_source), ""
 
 
-def _distribute_mov_ops(
-    mov_ops: List[Tuple[vsh_encoder.Instruction, str]], mac_ops: List, ilu_ops: List
-) -> str:
+def _distribute_mov_ops(mov_ops: list[tuple[vsh_encoder.Instruction, str]], mac_ops: list, ilu_ops: list) -> str:
     """Distributes a list of mov ops to the given lists or returns an error message."""
 
     movs_by_inputs = collections.defaultdict(list)
@@ -204,6 +218,10 @@ def _distribute_mov_ops(
         merged, error_message = _merge_ops(movs)
         if error_message:
             return error_message
+
+        if not merged:
+            msg = f"_merge_ops(movs = {movs!r}) returned invalid empty result"
+            raise ValueError(msg)
 
         targets_r1 = merged[0].primary_op_targets_r1
         targets_temp = merged[0].primary_op_targets_temporary
@@ -278,20 +296,25 @@ def _distribute_mov_ops(
     # Now there can only be one MOV which must write to both a temp and an output
     if r1_target:
         mac_ops.append(r1_target)
-        assert not (output_target or temp_target)
+        if output_target or temp_target:
+            msg = f"Neither output_target ({output_target!r} nor temp_target {temp_target!r} may be populated"
+            raise ValueError(msg)
         return ""
 
     if temp_target:
         mac_ops.append(r1_target)
-        assert not output_target
+        if output_target:
+            msg = "output_target must not be set"
+            raise ValueError(msg)
         return ""
 
-    raise EncodingError("Unexpected MOV processing state")
+    msg = "Unexpected MOV processing state"
+    raise EncodingError(msg)
 
 
 def process_combined_operations(
-    operations: List[Tuple[vsh_encoder.Instruction, str]], start_line: int = 0
-) -> Tuple[vsh_encoder.Instruction, str]:
+    operations: list[tuple[vsh_encoder.Instruction, str]], start_line: int = 0
+) -> tuple[vsh_encoder.Instruction, str]:
     """Combines a set of instructions into a single chained instruction."""
     mac_ops = []
     ilu_ops = []
@@ -309,10 +332,7 @@ def process_combined_operations(
             ilu_ops.append(entry)
         else:
             opcode = entry[0].opcode
-            if (
-                opcode == vsh_encoder.Opcode.OPCODE_ADD
-                or opcode == vsh_encoder.Opcode.OPCODE_SUB
-            ):
+            if opcode in {vsh_encoder.Opcode.OPCODE_ADD, vsh_encoder.Opcode.OPCODE_SUB}:
                 entry[0].swap_inputs_b_c()
             mac_ops.append(entry)
 
@@ -320,29 +340,36 @@ def process_combined_operations(
     if num_mac > 1:
         merged, error = _merge_ops(mac_ops)
         if error:
-            raise EncodingError(f"Conflicting MAC operations ({error}) at {start_line}")
+            msg = f"Conflicting MAC operations ({error}) at {start_line}"
+            raise EncodingError(msg)
+        if not merged:
+            msg = f"_merge_ops(mac_ops = {mac_ops!r}) returned invalid empty result"
+            raise ValueError(msg)
         mac_ops = [merged]
 
     num_ilu = len(ilu_ops)
     if num_ilu > 1:
         merged, error = _merge_ops(ilu_ops)
         if error:
-            raise EncodingError(f"Conflicting ILU operations ({error}) at {start_line}")
+            msg = f"Conflicting ILU operations ({error}) at {start_line}"
+            raise EncodingError(msg)
+        if not merged:
+            msg = f"_merge_ops(ilu_ops = {ilu_ops!r}) returned invalid empty result"
+            raise ValueError(msg)
         ilu_ops = [merged]
 
     if mov_ops:
         error_message = _distribute_mov_ops(mov_ops, mac_ops, ilu_ops)
         if error_message:
-            raise EncodingError(f"Invalid pairing ({error_message}) at {start_line}")
+            msg = f"Invalid pairing ({error_message}) at {start_line}"
+            raise EncodingError(msg)
 
     if len(mac_ops) > 1:
-        raise EncodingError(
-            f"Invalid pairing (more than 2 MAC operations) at {start_line}"
-        )
+        msg = f"Invalid pairing (more than 2 MAC operations) at {start_line}"
+        raise EncodingError(msg)
     if len(ilu_ops) > 1:
-        raise EncodingError(
-            f"Invalid pairing (more than 2 ILU operations) at {start_line}"
-        )
+        msg = f"Invalid pairing (more than 2 ILU operations) at {start_line}"
+        raise EncodingError(msg)
 
     if mac_ops and ilu_ops:
         combined_op = mac_ops[0][0]
@@ -353,9 +380,8 @@ def process_combined_operations(
         input_c = combined_op.src_reg[2]
 
         if input_c and input_c != ilu_op.src_reg[2]:
-            raise EncodingError(
-                f"Invalid instruction pairing (MAC operation uses input C which does not match ILU input)"
-            )
+            msg = "Invalid instruction pairing (MAC operation uses input C which does not match ILU input)"
+            raise EncodingError(msg)
         combined_op.src_reg[2] = ilu_op.src_reg[2]
         combined_op.paired_ilu_opcode = ilu_op.opcode
         combined_op.paired_ilu_dst_reg = ilu_op.dst_reg
@@ -369,7 +395,8 @@ def process_combined_operations(
     elif ilu_ops:
         combined = ilu_ops[0]
     else:
-        raise ValueError("Bad state, mac_ops and ilu_ops empty.")
+        msg = "Bad state, mac_ops and ilu_ops empty."
+        raise ValueError(msg)
 
     return combined
 
@@ -379,7 +406,7 @@ class EncodingVisitor(VshVisitor):
 
     def __init__(self) -> None:
         super().__init__()
-        self._uniforms = {}
+        self._uniforms: dict[str, _Uniform] = {}
 
     def visitStatement(self, ctx: VshParser.StatementContext):
         operations = self.visitChildren(ctx)
@@ -388,36 +415,53 @@ class EncodingVisitor(VshVisitor):
         return None
 
     def visitUniform_type(self, ctx: VshParser.Uniform_typeContext):
-        assert len(ctx.children) == 1
-        assert ctx.children[0].symbol.type in _UNIFORM_TYPE_TO_SIZE
+        if len(ctx.children) != 1:
+            msg = f"ctx.children {ctx.children!r} must have exactly one element"
+            raise ValueError(msg)
+        if ctx.children[0].symbol.type not in _UNIFORM_TYPE_TO_SIZE:
+            msg = (
+                f"ctx.children[0].symbol.type {ctx.children[0].symbol.type!r} must be one of {_UNIFORM_TYPE_TO_SIZE!r}"
+            )
+            raise ValueError(msg)
+
         return ctx.children[0].symbol.type
 
     def visitUniform_declaration(self, ctx: VshParser.Uniform_declarationContext):
         uniform_type = self.visitChildren(ctx)[0]
-        assert len(ctx.children) == 3
+        if len(ctx.children) != 3:
+            msg = f"ctx.children {ctx.children!r} must have exactly three elements"
+            raise ValueError(msg)
+
         identifier = ctx.children[0].symbol.text
         value = int(ctx.children[2].symbol.text)
 
         if identifier in self._uniforms:
-            raise EncodingError(
-                f"Duplicate definition of uniform {identifier} at line {ctx.start.line}"
-            )
+            msg = f"Duplicate definition of uniform {identifier} at line {ctx.start.line}"
+            raise EncodingError(msg)
         self._uniforms[identifier] = _Uniform(identifier, uniform_type, value)
-        return None
 
     def visitOperation(self, ctx: VshParser.OperationContext):
         instructions = self.visitChildren(ctx)
-        assert len(instructions) == 1
+        if len(instructions) != 1:
+            msg = f"instructions {instructions!r} must have exactly one element"
+            raise ValueError(msg)
+
         return instructions[0]
 
     def visitCombined_operation(self, ctx: VshParser.Combined_operationContext):
         operations = self.visitChildren(ctx)
-        assert 2 <= len(operations) <= 4
+        if len(operations) <= 1 or len(operations) >= 5:
+            msg = f"operations {operations!r} must have exactly 2, 3, or 4 elements."
+            raise ValueError(msg)
+
         return process_combined_operations(operations, ctx.start.line)
 
     def visitOp_add(self, ctx: VshParser.Op_addContext):
         operands = self.visitChildren(ctx)
-        assert len(operands) == 1
+        if len(operands) != 1:
+            msg = f"operands {operands!r} must have exactly one element"
+            raise ValueError(msg)
+
         operands = operands[0]
         return (
             vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_ADD, *operands),
@@ -426,7 +470,10 @@ class EncodingVisitor(VshVisitor):
 
     def visitOp_arl(self, ctx: VshParser.Op_arlContext):
         operands = self.visitChildren(ctx)
-        assert len(operands) == 1
+        if len(operands) != 1:
+            msg = f"operands {operands!r} must have exactly one element"
+            raise ValueError(msg)
+
         operands = operands[0]
         return (
             vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_ARL, *operands),
@@ -435,7 +482,10 @@ class EncodingVisitor(VshVisitor):
 
     def visitOp_dp3(self, ctx: VshParser.Op_dp3Context):
         operands = self.visitChildren(ctx)
-        assert len(operands) == 1
+        if len(operands) != 1:
+            msg = f"operands {operands!r} must have exactly one element"
+            raise ValueError(msg)
+
         operands = operands[0]
         return (
             vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_DP3, *operands),
@@ -444,7 +494,10 @@ class EncodingVisitor(VshVisitor):
 
     def visitOp_dp4(self, ctx: VshParser.Op_dp4Context):
         operands = self.visitChildren(ctx)
-        assert len(operands) == 1
+        if len(operands) != 1:
+            msg = f"operands {operands!r} must have exactly one element"
+            raise ValueError(msg)
+
         operands = operands[0]
         return (
             vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_DP4, *operands),
@@ -453,7 +506,10 @@ class EncodingVisitor(VshVisitor):
 
     def visitOp_dph(self, ctx: VshParser.Op_dphContext):
         operands = self.visitChildren(ctx)
-        assert len(operands) == 1
+        if len(operands) != 1:
+            msg = f"operands {operands!r} must have exactly one element"
+            raise ValueError(msg)
+
         operands = operands[0]
         return (
             vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_DPH, *operands),
@@ -462,7 +518,10 @@ class EncodingVisitor(VshVisitor):
 
     def visitOp_dst(self, ctx: VshParser.Op_dstContext):
         operands = self.visitChildren(ctx)
-        assert len(operands) == 1
+        if len(operands) != 1:
+            msg = f"operands {operands!r} must have exactly one element"
+            raise ValueError(msg)
+
         operands = operands[0]
         return (
             vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_DST, *operands),
@@ -471,7 +530,10 @@ class EncodingVisitor(VshVisitor):
 
     def visitOp_expp(self, ctx: VshParser.Op_exppContext):
         operands = self.visitChildren(ctx)
-        assert len(operands) == 1
+        if len(operands) != 1:
+            msg = f"operands {operands!r} must have exactly one element"
+            raise ValueError(msg)
+
         operands = operands[0]
         return (
             vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_EXP, *operands),
@@ -480,7 +542,10 @@ class EncodingVisitor(VshVisitor):
 
     def visitOp_lit(self, ctx: VshParser.Op_litContext):
         operands = self.visitChildren(ctx)
-        assert len(operands) == 1
+        if len(operands) != 1:
+            msg = f"operands {operands!r} must have exactly one element"
+            raise ValueError(msg)
+
         operands = operands[0]
         return (
             vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_LIT, *operands),
@@ -489,7 +554,10 @@ class EncodingVisitor(VshVisitor):
 
     def visitOp_logp(self, ctx: VshParser.Op_logpContext):
         operands = self.visitChildren(ctx)
-        assert len(operands) == 1
+        if len(operands) != 1:
+            msg = f"operands {operands!r} must have exactly one element"
+            raise ValueError(msg)
+
         operands = operands[0]
         return (
             vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_LOG, *operands),
@@ -498,7 +566,10 @@ class EncodingVisitor(VshVisitor):
 
     def visitOp_mad(self, ctx: VshParser.Op_madContext):
         operands = self.visitChildren(ctx)
-        assert len(operands) == 1
+        if len(operands) != 1:
+            msg = f"operands {operands!r} must have exactly one element"
+            raise ValueError(msg)
+
         operands = operands[0]
         return (
             vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_MAD, *operands),
@@ -507,7 +578,10 @@ class EncodingVisitor(VshVisitor):
 
     def visitOp_max(self, ctx: VshParser.Op_maxContext):
         operands = self.visitChildren(ctx)
-        assert len(operands) == 1
+        if len(operands) != 1:
+            msg = f"operands {operands!r} must have exactly one element"
+            raise ValueError(msg)
+
         operands = operands[0]
         return (
             vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_MAX, *operands),
@@ -516,7 +590,10 @@ class EncodingVisitor(VshVisitor):
 
     def visitOp_min(self, ctx: VshParser.Op_minContext):
         operands = self.visitChildren(ctx)
-        assert len(operands) == 1
+        if len(operands) != 1:
+            msg = f"operands {operands!r} must have exactly one element"
+            raise ValueError(msg)
+
         operands = operands[0]
         return (
             vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_MIN, *operands),
@@ -525,7 +602,10 @@ class EncodingVisitor(VshVisitor):
 
     def visitOp_mov(self, ctx: VshParser.Op_movContext):
         operands = self.visitChildren(ctx)
-        assert len(operands) == 1
+        if len(operands) != 1:
+            msg = f"operands {operands!r} must have exactly one element"
+            raise ValueError(msg)
+
         operands = operands[0]
         return (
             vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_MOV, *operands),
@@ -534,7 +614,10 @@ class EncodingVisitor(VshVisitor):
 
     def visitOp_mul(self, ctx: VshParser.Op_mulContext):
         operands = self.visitChildren(ctx)
-        assert len(operands) == 1
+        if len(operands) != 1:
+            msg = f"operands {operands!r} must have exactly one element"
+            raise ValueError(msg)
+
         operands = operands[0]
         return (
             vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_MUL, *operands),
@@ -543,7 +626,10 @@ class EncodingVisitor(VshVisitor):
 
     def visitOp_rcc(self, ctx: VshParser.Op_rccContext):
         operands = self.visitChildren(ctx)
-        assert len(operands) == 1
+        if len(operands) != 1:
+            msg = f"operands {operands!r} must have exactly one element"
+            raise ValueError(msg)
+
         operands = operands[0]
         return (
             vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_RCC, *operands),
@@ -552,7 +638,10 @@ class EncodingVisitor(VshVisitor):
 
     def visitOp_rcp(self, ctx: VshParser.Op_rcpContext):
         operands = self.visitChildren(ctx)
-        assert len(operands) == 1
+        if len(operands) != 1:
+            msg = f"operands {operands!r} must have exactly one element"
+            raise ValueError(msg)
+
         operands = operands[0]
         return (
             vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_RCP, *operands),
@@ -561,7 +650,10 @@ class EncodingVisitor(VshVisitor):
 
     def visitOp_rsq(self, ctx: VshParser.Op_rsqContext):
         operands = self.visitChildren(ctx)
-        assert len(operands) == 1
+        if len(operands) != 1:
+            msg = f"operands {operands!r} must have exactly one element"
+            raise ValueError(msg)
+
         operands = operands[0]
         return (
             vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_RSQ, *operands),
@@ -570,7 +662,10 @@ class EncodingVisitor(VshVisitor):
 
     def visitOp_sge(self, ctx: VshParser.Op_sgeContext):
         operands = self.visitChildren(ctx)
-        assert len(operands) == 1
+        if len(operands) != 1:
+            msg = f"operands {operands!r} must have exactly one element"
+            raise ValueError(msg)
+
         operands = operands[0]
         return (
             vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_SGE, *operands),
@@ -579,7 +674,10 @@ class EncodingVisitor(VshVisitor):
 
     def visitOp_slt(self, ctx: VshParser.Op_sltContext):
         operands = self.visitChildren(ctx)
-        assert len(operands) == 1
+        if len(operands) != 1:
+            msg = f"operands {operands!r} must have exactly one element"
+            raise ValueError(msg)
+
         operands = operands[0]
         return (
             vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_SLT, *operands),
@@ -588,7 +686,10 @@ class EncodingVisitor(VshVisitor):
 
     def visitOp_sub(self, ctx: VshParser.Op_subContext):
         operands = self.visitChildren(ctx)
-        assert len(operands) == 1
+        if len(operands) != 1:
+            msg = f"operands {operands!r} must have exactly one element"
+            raise ValueError(msg)
+
         operands = operands[0]
         return (
             vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_SUB, *operands),
@@ -605,9 +706,14 @@ class EncodingVisitor(VshVisitor):
     def visitP_output(self, ctx: VshParser.P_outputContext):
         operands = self.visitChildren(ctx)
         if operands:
-            assert len(operands) == 1
+            if len(operands) != 1:
+                msg = f"operands {operands!r} must have exactly one element"
+                raise ValueError(msg)
+
             target = operands[0]
-            assert target.type == _REG_CONSTANT
+            if target.type != _REG_CONSTANT:
+                msg = f"target.type { target.type!r} must be _REG_CONSTANT {_REG_CONSTANT!r}"
+                raise ValueError(msg)
         else:
             target = ctx.children[0].symbol
         mask = None
@@ -617,10 +723,7 @@ class EncodingVisitor(VshVisitor):
 
     def visitP_input_raw(self, ctx: VshParser.P_input_rawContext):
         subtree = self.visitChildren(ctx)
-        if subtree:
-            source = subtree[0]
-        else:
-            source = ctx.children[0].symbol
+        source = subtree[0] if subtree else ctx.children[0].symbol
         swizzle = None
         if len(ctx.children) > 1:
             swizzle = ctx.children[1].symbol
@@ -628,7 +731,10 @@ class EncodingVisitor(VshVisitor):
 
     def visitP_input_negated(self, ctx: VshParser.P_input_negatedContext):
         contents = self.visitChildren(ctx)
-        assert len(contents) == 1
+        if len(contents) != 1:
+            msg = f"contents {contents!r} must have exactly one element"
+            raise ValueError(msg)
+
         src_reg = contents[0]
         src_reg.set_negated()
         return src_reg
@@ -648,36 +754,35 @@ class EncodingVisitor(VshVisitor):
         if reg.type == VshLexer.REG_Cx_RELATIVE_A_FIRST:
             match = _RELATIVE_CONSTANT_A_FIRST_RE.match(reg.text)
             if not match:
-                raise EncodingError(f"Failed to parse relative constant {reg.text}")
+                msg = f"Failed to parse relative constant {reg.text}"
+                raise EncodingError(msg)
             register = int(match.group(1))
-            return _ConstantRegister(register, True)
+            return _ConstantRegister(register, is_relative=True)
         if reg.type == VshLexer.REG_Cx_RELATIVE_A_SECOND:
             match = _RELATIVE_CONSTANT_A_SECOND_RE.match(reg.text)
             if not match:
-                raise EncodingError(f"Failed to parse relative constant {reg.text}")
+                msg = f"Failed to parse relative constant {reg.text}"
+                raise EncodingError(msg)
             register = int(match.group(1))
-            return _ConstantRegister(register, True)
+            return _ConstantRegister(register, is_relative=True)
 
-        raise EncodingError(
-            f"TODO: Implement unhandled const register format {reg.text}"
-        )
+        msg = f"TODO: Implement unhandled const register format {reg.text}"
+        raise EncodingError(msg)
 
     def visitUniform_const(self, ctx: VshParser.Uniform_constContext):
         name = ctx.children[0].symbol.text
-        uniform: Optional[_Uniform] = self._uniforms.get(name)
+        uniform: _Uniform | None = self._uniforms.get(name)
         if not uniform:
-            raise EncodingError(
-                f"Undefined uniform {name} used at line {ctx.start.line}"
-            )
+            msg = f"Undefined uniform {name} used at line {ctx.start.line}"
+            raise EncodingError(msg)
 
         offset = 0
         if len(ctx.children) > 1:
             offset = int(ctx.children[2].symbol.text)
 
         if offset >= uniform.size:
-            raise EncodingError(
-                f"Uniform offset out of range (max is {uniform.size - 1}) at line {ctx.start.line}"
-            )
+            msg = f"Uniform offset out of range (max is {uniform.size - 1}) at line {ctx.start.line}"
+            raise EncodingError(msg)
 
         return _ConstantRegister(uniform.value + offset)
 
@@ -693,20 +798,16 @@ class EncodingVisitor(VshVisitor):
 
         if target.type == VshLexer.REG_Rx:
             register = int(target.text[1:])
-            return vsh_encoder.DestinationRegister(
-                vsh_encoder.RegisterFile.PROGRAM_TEMPORARY, register, mask
-            )
+            return vsh_encoder.DestinationRegister(vsh_encoder.RegisterFile.PROGRAM_TEMPORARY, register, mask)
 
         if target.type == VshLexer.REG_OUTPUT:
             register = _NAME_TO_DESTINATION_REGISTER_MAP[target.text]
-            return vsh_encoder.DestinationRegister(
-                vsh_encoder.RegisterFile.PROGRAM_OUTPUT, register, mask
-            )
+            return vsh_encoder.DestinationRegister(vsh_encoder.RegisterFile.PROGRAM_OUTPUT, register, mask)
 
         if target.type == VshLexer.REG_A0:
             return vsh_encoder.DestinationRegister(
                 vsh_encoder.RegisterFile.PROGRAM_ADDRESS,
-                vsh_encoder.OutputRegisters.REG_A0,
+                vsh_encoder_defs.OutputRegisters.REG_A0,
                 mask,
             )
 
@@ -714,21 +815,21 @@ class EncodingVisitor(VshVisitor):
             if target.is_relative:
                 # TODO: Check if this is supported in the HW.
                 # Then implement or update grammar to disallow.
-                raise EncodingError(f"Unsupported write to relative constant register.")
+                msg = "Unsupported write to relative constant register."
+                raise EncodingError(msg)
             return vsh_encoder.DestinationRegister(
                 vsh_encoder.RegisterFile.PROGRAM_ENV_PARAM,
                 target.index,
                 mask,
             )
 
-        raise EncodingError(
-            f"Unsupported output target '{target.text}' at {target.line}:{target.column}"
-        )
+        msg = f"Unsupported output target '{target.text}' at {target.line}:{target.column}"
+        raise EncodingError(msg)
 
     @staticmethod
     def _process_source_swizzle(swizzle):
         if not swizzle:
-            return vsh_encoder.SWIZZLE_XYZW
+            return vsh_encoder_defs.SWIZZLE_XYZW
 
         # ".zzzz"
         swizzle_elements = swizzle.text[1:].lower()
@@ -738,29 +839,24 @@ class EncodingVisitor(VshVisitor):
     def _process_input(self, source, swizzle):
         swizzle = self._process_source_swizzle(swizzle)
 
-        if source.type == VshLexer.REG_Rx or source.type == VshLexer.REG_R12:
+        if source.type in {VshLexer.REG_Rx, VshLexer.REG_R12}:
             register = int(source.text[1:])
-            return vsh_encoder.SourceRegister(
-                vsh_encoder.RegisterFile.PROGRAM_TEMPORARY, register, swizzle
-            )
+            return vsh_encoder.SourceRegister(vsh_encoder.RegisterFile.PROGRAM_TEMPORARY, register, swizzle)
 
         if source.type == VshLexer.REG_INPUT:
             register = _SOURCE_REGISTER_LOOKUP[source.text.lower()]
-            return vsh_encoder.SourceRegister(
-                vsh_encoder.RegisterFile.PROGRAM_INPUT, register, swizzle
-            )
+            return vsh_encoder.SourceRegister(vsh_encoder.RegisterFile.PROGRAM_INPUT, register, swizzle)
 
         if source.type == _REG_CONSTANT:
             return vsh_encoder.SourceRegister(
                 vsh_encoder.RegisterFile.PROGRAM_ENV_PARAM,
                 source.index,
                 swizzle,
-                source.is_relative,
+                rel_addr=source.is_relative,
             )
 
-        raise EncodingError(
-            f"Unsupported input register '{source.text}' at {source.line}:{source.column}"
-        )
+        msg = f"Unsupported input register '{source.text}' at {source.line}:{source.column}"
+        raise EncodingError(msg)
 
     def aggregateResult(self, aggregate, nextResult):
         if nextResult is None:
@@ -778,25 +874,23 @@ class EncodingVisitor(VshVisitor):
         if register.file == vsh_encoder.RegisterFile.PROGRAM_TEMPORARY:
             return f"r{register.index}{mask}"
 
-        if (
-            register.file == vsh_encoder.RegisterFile.PROGRAM_OUTPUT
-            or register.file == vsh_encoder.RegisterFile.PROGRAM_ADDRESS
-        ):
-            name = vsh_encoder_defs.DESTINATION_REGISTER_TO_NAME_MAP[register.index]
+        if register.file in {
+            vsh_encoder.RegisterFile.PROGRAM_OUTPUT,
+            vsh_encoder.RegisterFile.PROGRAM_ADDRESS,
+        }:
+            name = vsh_encoder_defs.DESTINATION_REGISTER_TO_NAME_MAP[OutputRegisters(register.index)]
             return f"{name}{mask}"
 
         if register.file == vsh_encoder.RegisterFile.PROGRAM_ENV_PARAM:
             return f"c[{register.index}]{mask}"
 
-        raise EncodingError("TODO: Implement destination register prettification.")
+        msg = "TODO: Implement destination register prettification."
+        raise EncodingError(msg)
 
     @staticmethod
     def _prettify_source(register: vsh_encoder.SourceRegister) -> str:
         swizzle = vsh_instruction.get_swizzle_name(register.swizzle)
-        if swizzle == "xyzw":
-            swizzle = ""
-        else:
-            swizzle = f".{swizzle}"
+        swizzle = "" if swizzle == "xyzw" else f".{swizzle}"
 
         prefix = ""
         if register.negate:
@@ -809,13 +903,13 @@ class EncodingVisitor(VshVisitor):
             return f"{prefix}c{register.index}{swizzle}"
 
         if register.file == vsh_encoder.RegisterFile.PROGRAM_INPUT:
-            name = _SOURCE_REGISTER_TO_NAME_MAP[register.index]
+            name = _SOURCE_REGISTER_TO_NAME_MAP[InputRegisters(register.index)]
             return f"{prefix}{name}{swizzle}"
 
-        raise EncodingError("TODO: Implement destination register prettification.")
+        msg = "TODO: Implement destination register prettification."
+        raise EncodingError(msg)
 
     def _prettify_operands(self, operands) -> str:
-
         num_operands = len(operands)
         if not num_operands:
             return ""

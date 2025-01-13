@@ -1,14 +1,13 @@
 """nv2a vertex shader language assembler"""
-import sys
-from typing import List
+
+from __future__ import annotations
 
 import antlr4
-from nv2avsh.grammar.vsh.VshLexer import VshLexer
-from nv2avsh.grammar.vsh.VshParser import VshParser
-from nv2avsh.nv2a_vsh_asm.vsh_error_listener import VshErrorListener
 
-from . import vsh_encoder
-from . import encoding_visitor
+from nv2a_vsh.grammar.vsh.VshLexer import VshLexer
+from nv2a_vsh.grammar.vsh.VshParser import VshParser
+from nv2a_vsh.nv2a_vsh_asm import encoding_visitor, vsh_encoder
+from nv2a_vsh.nv2a_vsh_asm.vsh_error_listener import VshErrorListener
 
 
 class Assembler:
@@ -25,8 +24,8 @@ class Assembler:
 
     def __init__(self, source: str):
         self._source = source
-        self._output = []
-        self._pretty_sources = []
+        self._output: list[list[int]] = []
+        self._pretty_sources: tuple = ()
         self._error_listener = VshErrorListener()
 
     def assemble(self, **kwargs) -> bool:
@@ -49,25 +48,23 @@ class Assembler:
 
         if not program:
             self._output = []
-            self._pretty_sources = []
+            self._pretty_sources = ()
             return True
 
         instructions, sources = zip(*program)
-        self._output = vsh_encoder.encode(instructions, **kwargs)
-        self._pretty_sources = sources
+        self._output = vsh_encoder.encode(instructions, **kwargs)  # type: ignore[arg-type]
+        self._pretty_sources = sources  # type: ignore[assignment]
         return True
 
     @property
-    def errors(self) -> List[ErrorContext]:
+    def errors(self) -> list[ErrorContext]:
         return [
-            Assembler.ErrorContext(
-                error.message, error.symbol, error.line, error.column
-            )
+            Assembler.ErrorContext(error.message, error.symbol, error.line, error.column)
             for error in self._error_listener.errors
         ]
 
     @property
-    def output(self) -> List[List[int]]:
+    def output(self) -> list[list[int]]:
         """Retrieves the assembled list of machine code quadruplets."""
         return self._output
 
@@ -75,14 +72,12 @@ class Assembler:
         """Retrieves the assembled machine code as a C-like string."""
         lines = []
 
-        for (int_0, int_1, int_2, int_3), source in zip(
-            self._output, self._pretty_sources
-        ):
+        for (int_0, int_1, int_2, int_3), source in zip(self._output, self._pretty_sources):
             lines.append(f"/* {source} */")
             lines.append(f"0x{int_0:08x}, 0x{int_1:08x}, 0x{int_2:08x}, 0x{int_3:08x},")
 
         if len(self._output) == len(self._pretty_sources) + 1:
-            lines.append(f"/* <NOP FINAL MARKER> */")
+            lines.append("/* <NOP FINAL MARKER> */")
             int_0, int_1, int_2, int_3 = self._output[-1]
             lines.append(f"0x{int_0:08x}, 0x{int_1:08x}, 0x{int_2:08x}, 0x{int_3:08x},")
 

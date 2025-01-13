@@ -1,7 +1,8 @@
 """Common constants for the vertex shader encoder."""
 
+from __future__ import annotations
+
 import enum
-from typing import Optional
 
 SWIZZLE_X = 0
 SWIZZLE_Y = 1
@@ -87,9 +88,9 @@ MAC_NAMES = {
 
 def make_swizzle(
     x_slot: int,
-    y_slot: Optional[int] = None,
-    z_slot: Optional[int] = None,
-    w_slot: Optional[int] = None,
+    y_slot: int | None = None,
+    z_slot: int | None = None,
+    w_slot: int | None = None,
 ) -> int:
     """Creates a swizzle mask from the given components."""
     if y_slot is None:

@@ -2,18 +2,19 @@
 
 """Assembles nv2a vertex shader machine code."""
 
+# ruff: noqa: T201 `print` found
+
+from __future__ import annotations
+
 import argparse
 import logging
 import os
 import sys
-from typing import List, Optional, Tuple
 
-from nv2avsh.nv2a_vsh_asm.assembler import Assembler
+from nv2a_vsh.nv2a_vsh_asm.assembler import Assembler
 
 
-def assemble_to_c(
-    source: str, explicit_final: bool = False
-) -> Tuple[str, List[Assembler.ErrorContext]]:
+def assemble_to_c(source: str, *, explicit_final: bool = False) -> tuple[str, list[Assembler.ErrorContext]]:
     """Assembles the given source string, returning a C-style list of values."""
     asm = Assembler(source)
     success = asm.assemble(inline_final_flag=(not explicit_final))
@@ -24,9 +25,7 @@ def assemble_to_c(
     return results, []
 
 
-def assemble(
-    source: str, explicit_final: bool = False
-) -> Tuple[List[List[int]], List[Assembler.ErrorContext]]:
+def assemble(source: str, *, explicit_final: bool = False) -> tuple[list[list[int]], list[Assembler.ErrorContext]]:
     """Assembles the given source string, returning a list of machine code entries."""
     asm = Assembler(source)
     success = asm.assemble(inline_final_flag=(not explicit_final))
@@ -44,9 +43,9 @@ def _main(args):
         print(f"Failed to open input file '{args.input}'", file=sys.stderr)
         return 1
 
-    with open(args.input, "r") as infile:
+    with open(args.input) as infile:
         source = infile.read()
-    results, errors = assemble_to_c(source, args.explicit_final)
+    results, errors = assemble_to_c(source, explicit_final=args.explicit_final)
     if errors:
         print(f"Assembly failed due to errors in {args.input}:", file=sys.stderr)
         for error in errors:
