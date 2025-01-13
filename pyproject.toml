@@ -81,10 +81,18 @@ artifacts = [
     "src/grammar/vsh/*",
 ]
 
+[tool.hatch.build.targets.sdist]
+exclude = [
+  "README-maintainer.md"
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/nv2a_vsh"]
 include = [
     "src/grammar/vsh/*",
+]
+exclude = [
+  "README-maintainer.md"
 ]
 
 [tool.hatch.build.targets.wheel.hooks.custom]
