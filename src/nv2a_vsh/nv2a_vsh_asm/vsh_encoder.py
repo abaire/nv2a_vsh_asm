@@ -1,30 +1,32 @@
 # pylint: disable=line-too-long
 """Handles encoding of nv2a vertex shader operations into machine code.
 
- * Based on https://github.com/XboxDev/nxdk/blob/c4b69e7a82452c21aa2c62701fd3836755950f58/tools/vp20compiler/prog_instruction.c#L1
- * Mesa 3-D graphics library
- * Version:  7.3
- *
- * Copyright (C) 1999-2008  Brian Paul   All Rights Reserved.
- * Copyright (C) 1999-2009  VMware, Inc.  All Rights Reserved.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included
- * in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
- * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * BRIAN PAUL BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
- * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+* Based on https://github.com/XboxDev/nxdk/blob/c4b69e7a82452c21aa2c62701fd3836755950f58/tools/vp20compiler/prog_instruction.c#L1
+* Mesa 3-D graphics library
+* Version:  7.3
+*
+* Copyright (C) 1999-2008  Brian Paul   All Rights Reserved.
+* Copyright (C) 1999-2009  VMware, Inc.  All Rights Reserved.
+*
+* Permission is hereby granted, free of charge, to any person obtaining a
+* copy of this software and associated documentation files (the "Software"),
+* to deal in the Software without restriction, including without limitation
+* the rights to use, copy, modify, merge, publish, distribute, sublicense,
+* and/or sell copies of the Software, and to permit persons to whom the
+* Software is furnished to do so, subject to the following conditions:
+*
+* The above copyright notice and this permission notice shall be included
+* in all copies or substantial portions of the Software.
+*
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+* OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+* BRIAN PAUL BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+* AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+* CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """
+
+# ruff: noqa: PLC0414 Import alias does not rename original package
 # pylint: enable=line-too-long
 
 # pylint: disable=too-few-public-methods
@@ -35,12 +37,30 @@
 # pylint: disable=unused-wildcard-import
 # pylint: disable=wildcard-import
 
-import sys
-from typing import List, Optional, Tuple
+from __future__ import annotations
 
-from . import vsh_instruction
-from .vsh_encoder_defs import *
-from .encoding_error import EncodingError
+import enum
+import sys
+
+from nv2a_vsh.nv2a_vsh_asm import vsh_instruction
+from nv2a_vsh.nv2a_vsh_asm.encoding_error import EncodingError
+from nv2a_vsh.nv2a_vsh_asm.vsh_encoder_defs import (
+    ILU,
+    MAC,
+    OMUX_ILU,
+    OMUX_MAC,
+    OUTPUT_C,
+    PARAM_C,
+    PARAM_R,
+    PARAM_V,
+    SWIZZLE_XYZW,
+    VSH_MASK,
+    WRITEMASK_NAME,
+    WRITEMASK_XYZW,
+)
+from nv2a_vsh.nv2a_vsh_asm.vsh_encoder_defs import (
+    make_swizzle as make_swizzle,
+)
 
 
 class Opcode(enum.Enum):
@@ -70,19 +90,14 @@ class Opcode(enum.Enum):
 
     def is_ilu(self) -> bool:
         """Returns True if this opcode is an ILU operation."""
-        if self == self.OPCODE_EXP:
-            return True
-        if self == self.OPCODE_LIT:
-            return True
-        if self == self.OPCODE_LOG:
-            return True
-        if self == self.OPCODE_RCC:
-            return True
-        if self == self.OPCODE_RCP:
-            return True
-        if self == self.OPCODE_RSQ:
-            return True
-        return False
+        return self in {
+            self.OPCODE_EXP,
+            self.OPCODE_LIT,
+            self.OPCODE_LOG,
+            self.OPCODE_RCC,
+            self.OPCODE_RCP,
+            self.OPCODE_RSQ,
+        }
 
     def is_mac(self) -> bool:
         """Returns True if this opcode is a MAC operation."""
@@ -113,6 +128,7 @@ class SourceRegister:
         file: RegisterFile,
         index: int = 0,
         swizzle: int = SWIZZLE_XYZW,
+        *,
         rel_addr: bool = False,
         negate: bool = False,
     ):
@@ -137,9 +153,7 @@ class SourceRegister:
 
     def __repr__(self):
         return (
-            f"{type(self).__name__}({self.file} "
-            f"{self.index} "
-            f"{vsh_instruction.get_swizzle_name(self.swizzle)})"
+            f"{type(self).__name__}({self.file} " f"{self.index} " f"{vsh_instruction.get_swizzle_name(self.swizzle)})"
         )
 
 
@@ -189,14 +203,14 @@ class Instruction:
     def __init__(
         self,
         opcode: Opcode,
-        output: Optional[DestinationRegister] = None,
-        src_a: Optional[SourceRegister] = None,
-        src_b: Optional[SourceRegister] = None,
-        src_c: Optional[SourceRegister] = None,
-        secondary_output: Optional[DestinationRegister] = None,
-        paired_ilu_opcode: Optional[Opcode] = None,
-        paired_ilu_dst_reg: Optional[DestinationRegister] = None,
-        paired_ilu_secondary_dst_reg: Optional[DestinationRegister] = None,
+        output: DestinationRegister | None = None,
+        src_a: SourceRegister | None = None,
+        src_b: SourceRegister | None = None,
+        src_c: SourceRegister | None = None,
+        secondary_output: DestinationRegister | None = None,
+        paired_ilu_opcode: Opcode | None = None,
+        paired_ilu_dst_reg: DestinationRegister | None = None,
+        paired_ilu_secondary_dst_reg: DestinationRegister | None = None,
     ):
         self.opcode = opcode
         self.dst_reg = output
@@ -236,7 +250,7 @@ class Instruction:
                 return True
         return False
 
-    def input_signature(self) -> Tuple:
+    def input_signature(self) -> tuple:
         """Returns a tuple describing the inputs to this operation."""
         elements = []
         for src in self.src_reg:
@@ -275,28 +289,29 @@ class Instruction:
     def __repr__(self) -> str:
         paired_info = ""
         if self.paired_ilu_opcode:
-            assert self.paired_ilu_dst_reg
+            if not self.paired_ilu_dst_reg:
+                msg = "self.paired_ilu_dst_reg must be set"
+                raise ValueError(msg)
+
             secondary_output = ""
             if self.paired_ilu_secondary_dst_reg:
-                secondary_output = f"+{repr(self.paired_ilu_secondary_dst_reg)}"
-            paired_info = f" + {self.paired_ilu_opcode}=>{repr(self.paired_ilu_dst_reg)}{secondary_output}"
+                secondary_output = f"+{self.paired_ilu_secondary_dst_reg!r}"
+            paired_info = f" + {self.paired_ilu_opcode}=>{self.paired_ilu_dst_reg!r}{secondary_output}"
 
         params = [repr(p) for p in self.src_reg if p]
         secondary_output = ""
         if self.secondary_dst_reg:
-            secondary_output = f"+{repr(self.secondary_dst_reg)}"
+            secondary_output = f"+{self.secondary_dst_reg!r}"
         return (
-            f"<{type(self).__name__} {self.opcode} {repr(self.dst_reg)}{secondary_output} "
+            f"<{type(self).__name__} {self.opcode} {self.dst_reg!r}{secondary_output} "
             + " ".join(params)
             + f"{paired_info}"
             + ">"
         )
 
 
-def _process_opcode(
-    ins: Instruction, out: vsh_instruction.VshInstruction
-) -> Tuple[bool, bool]:
-    def _set(opcode: Opcode, mov_is_ilu=False):
+def _process_opcode(ins: Instruction, out: vsh_instruction.VshInstruction) -> tuple[bool, bool]:
+    def _set(opcode: Opcode, *, mov_is_ilu=False):
         ilu = False
         mac = False
         if opcode == Opcode.OPCODE_MOV:
@@ -319,7 +334,8 @@ def _process_opcode(
             out.mac = MAC.MAC_ADD
             out.c_negate = True
             mac = True
-            raise EncodingError("TODO: xor negated args")
+            msg = "TODO: xor negated args"
+            raise EncodingError(msg)
 
         elif opcode == Opcode.OPCODE_MAD:
             out.mac = MAC.MAC_MAD
@@ -386,21 +402,20 @@ def _process_opcode(
             ilu = True
 
         else:
-            raise EncodingError(f"Invalid opcode for instruction {ins}")
+            msg = f"Invalid opcode for instruction {ins}"
+            raise EncodingError(msg)
 
         return ilu, mac
 
     ilu, mac = _set(ins.opcode)
     if ins.paired_ilu_opcode:
-        add_ilu, add_mac = _set(ins.paired_ilu_opcode, True)
+        add_ilu, add_mac = _set(ins.paired_ilu_opcode, mov_is_ilu=True)
         if ilu and add_ilu:
-            raise EncodingError(
-                "Paired instructions {ins.opcode} + {ins.paired_opcode} both use the ILU."
-            )
+            msg = "Paired instructions {ins.opcode} + {ins.paired_opcode} both use the ILU."
+            raise EncodingError(msg)
         if mac and add_mac:
-            raise EncodingError(
-                "Paired instructions {ins.opcode} + {ins.paired_opcode} both use the MAC."
-            )
+            msg = "Paired instructions {ins.opcode} + {ins.paired_opcode} both use the MAC."
+            raise EncodingError(msg)
         ilu = True
         mac = True
 
@@ -408,22 +423,25 @@ def _process_opcode(
 
 
 def _process_destination(
-    dst_reg: Optional[DestinationRegister],
-    secondary_dst_reg: Optional[DestinationRegister],
+    dst_reg: DestinationRegister | None,
+    secondary_dst_reg: DestinationRegister | None,
+    *,
     ilu: bool,
     mac: bool,
     vsh_ins: vsh_instruction.VshInstruction,
     is_paired: bool = False,
 ):
     if not dst_reg:
-        assert not secondary_dst_reg
+        if secondary_dst_reg:
+            msg = f"secondary_dst_reg {secondary_dst_reg!r} must not be set"
+            raise ValueError(msg)
         return
 
     def _process(reg: DestinationRegister):
         if reg.file == RegisterFile.PROGRAM_TEMPORARY:
             if is_paired and ilu and reg.index != 1:
                 # TODO: Implement a better system for tracking warnings.
-                print(
+                print(  # noqa: T201 `print` found
                     f"Warning: Paired ILU instruction writes to R{reg.index} but will silently be treated as an R1 write. Emitting R1 target.",
                     file=sys.stderr,
                 )
@@ -439,9 +457,9 @@ def _process_destination(
         if reg.file == RegisterFile.PROGRAM_OUTPUT:
             vsh_ins.out_o_mask = VSH_MASK[reg.write_mask]
             if mac:
-                vsh_ins.out_mux = OMUX_MAC
+                vsh_ins.out_mux = bool(OMUX_MAC)
             elif ilu:
-                vsh_ins.out_mux = OMUX_ILU
+                vsh_ins.out_mux = bool(OMUX_ILU)
 
             vsh_ins.out_address = reg.index
             return
@@ -449,41 +467,45 @@ def _process_destination(
         if reg.file == RegisterFile.PROGRAM_ENV_PARAM:
             vsh_ins.out_o_mask = VSH_MASK[reg.write_mask]
             if mac:
-                vsh_ins.out_mux = OMUX_MAC
+                vsh_ins.out_mux = bool(OMUX_MAC)
             elif ilu:
-                vsh_ins.out_mux = OMUX_ILU
+                vsh_ins.out_mux = bool(OMUX_ILU)
 
-            vsh_ins.out_o_or_c = OUTPUT_C
+            vsh_ins.out_o_or_c = bool(OUTPUT_C)
             vsh_ins.out_address = reg.index
             return
 
         if reg.file == RegisterFile.PROGRAM_ADDRESS:
             # ARL is the only instruction that can write to A0 and it is MAC-only.
-            assert mac
+            if not mac:
+                msg = "ARL is the only instruction that can write to A0 and it is MAC-only."
+                raise ValueError(msg)
 
             # The destination is implied by the ARL operand, so nothing needs to be set.
             return
 
-        raise EncodingError(f"Unsupported destination register {reg}.")
+        msg = f"Unsupported destination register {reg}."
+        raise EncodingError(msg)
 
     _process(dst_reg)
     if secondary_dst_reg:
         _process(secondary_dst_reg)
 
 
-def _process_source(
-    ins: Instruction, ilu: bool, mac: bool, vsh_ins: vsh_instruction.VshInstruction
-):
+def _process_source(ins: Instruction, *, ilu: bool, mac: bool, vsh_ins: vsh_instruction.VshInstruction):
     if ilu and not mac:
         # ILU instructions only use input C. Swap src reg 0 and 2.
-        assert not ins.src_reg[1]
-        assert not ins.src_reg[2]
+        if ins.src_reg[1] or ins.src_reg[2]:
+            msg = f"Neither ins.src_reg[1] {ins.src_reg[1]!r} nor ins.src_reg[2] {ins.src_reg[2]!r} may not be set"
+            raise ValueError(msg)
         ins.src_reg[2] = ins.src_reg[0]
         ins.src_reg[0] = None
 
-    if ins.opcode == Opcode.OPCODE_ADD or ins.opcode == Opcode.OPCODE_SUB:
+    if ins.opcode in {Opcode.OPCODE_ADD, Opcode.OPCODE_SUB}:
         # ADD/SUB use A and C. Swap src reg 1 and 2
-        assert not ins.src_reg[2]
+        if ins.src_reg[2]:
+            msg = f"ins.src_reg[2] {ins.src_reg[2]!r} must not be set"
+            raise ValueError(msg)
         ins.src_reg[2] = ins.src_reg[1]
         ins.src_reg[1] = None
 
@@ -502,15 +524,15 @@ def _process_source(
             vsh_ins.set_mux_field(i, PARAM_C)
             vsh_ins.const_reg = reg.index
             if c_reg_index is not None and c_reg_index != reg.index:
-                raise EncodingError(
-                    f"Operation reads from more than one C register (c[{c_reg_index}] and c[{reg.index}])"
-                )
+                msg = f"Operation reads from more than one C register (c[{c_reg_index}] and c[{reg.index}])"
+                raise EncodingError(msg)
             c_reg_index = reg.index
         elif reg.file == RegisterFile.PROGRAM_INPUT:
             vsh_ins.set_mux_field(i, PARAM_V)
             vsh_ins.input_reg = reg.index
         else:
-            raise EncodingError(f"Unsupported register type [{i}]{reg}")
+            msg = f"Unsupported register type [{i}]{reg}"
+            raise EncodingError(msg)
 
         if reg.negate:
             vsh_ins.set_negate_field(i, True)
@@ -524,23 +546,28 @@ def _process_instruction(ins: Instruction, vsh_ins: vsh_instruction.VshInstructi
         _process_destination(
             ins.paired_ilu_dst_reg,
             ins.paired_ilu_secondary_dst_reg,
-            True,
-            False,
-            vsh_ins,
-            True,
+            ilu=True,
+            mac=False,
+            vsh_ins=vsh_ins,
+            is_paired=True,
         )
         _process_destination(
-            ins.dst_reg, ins.secondary_dst_reg, False, True, vsh_ins, True
+            ins.dst_reg,
+            ins.secondary_dst_reg,
+            ilu=False,
+            mac=True,
+            vsh_ins=vsh_ins,
+            is_paired=True,
         )
     else:
-        _process_destination(ins.dst_reg, ins.secondary_dst_reg, ilu, mac, vsh_ins)
+        _process_destination(ins.dst_reg, ins.secondary_dst_reg, ilu=ilu, mac=mac, vsh_ins=vsh_ins)
 
-    _process_source(ins, ilu, mac, vsh_ins)
+    _process_source(ins, ilu=ilu, mac=mac, vsh_ins=vsh_ins)
 
 
 def encode_to_objects(
-    instructions: List[Instruction], inline_final_flag=False
-) -> List[vsh_instruction.VshInstruction]:
+    instructions: list[Instruction], *, inline_final_flag=False
+) -> list[vsh_instruction.VshInstruction]:
     """Encodes the given Instructions into a list ov VshInstruction objects."""
     program = []
     for ins in instructions:
@@ -553,13 +580,13 @@ def encode_to_objects(
         if inline_final_flag:
             program[-1].final = True
         else:
-            vsh_ins = vsh_instruction.VshInstruction(True)
+            vsh_ins = vsh_instruction.VshInstruction(empty_final=True)
             program.append(vsh_ins)
 
     return program
 
 
-def encode(instructions: List[Instruction], inline_final_flag=False) -> List[List[int]]:
+def encode(instructions: list[Instruction], *, inline_final_flag=False) -> list[list[int]]:
     """Encodes a list of instructions into a list of machine code quadruplets."""
-    program = encode_to_objects(instructions, inline_final_flag)
+    program = encode_to_objects(instructions, inline_final_flag=inline_final_flag)
     return [x.encode() for x in program]

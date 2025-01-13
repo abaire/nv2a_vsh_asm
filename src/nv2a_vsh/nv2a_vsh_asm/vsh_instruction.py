@@ -1,5 +1,9 @@
 """Provides functionality for manipulating nv2a vertex shader machine code."""
 
+# ruff: noqa: SLF001 Private member accessed
+# ruff: noqa: PLR2004 Magic value used in comparison
+# ruff: noqa: RUF012 Mutable class attributes should be annotated with `typing.ClassVar`
+
 # pylint: disable=invalid-name
 # pylint: disable=missing-function-docstring
 # pylint: disable=protected-access
@@ -11,17 +15,70 @@
 # pylint: disable=unused-wildcard-import
 # pylint: disable=wildcard-import
 
+from __future__ import annotations
+
 import ctypes
 import itertools
 import struct
 import sys
-from typing import List, Tuple
+from typing import Literal
 
-from .vsh_encoder_defs import *
+from nv2a_vsh.nv2a_vsh_asm.vsh_encoder_defs import (
+    DESTINATION_REGISTER_TO_NAME_MAP_SHORT,
+    ILU,
+    ILU_NAMES,
+    MAC,
+    MAC_NAMES,
+    MASK_W,
+    MASK_X,
+    MASK_XW,
+    MASK_XY,
+    MASK_XYW,
+    MASK_XYZ,
+    MASK_XYZW,
+    MASK_XZ,
+    MASK_XZW,
+    MASK_Y,
+    MASK_YW,
+    MASK_YZ,
+    MASK_YZW,
+    MASK_Z,
+    MASK_ZW,
+    OMUX_ILU,
+    OMUX_MAC,
+    OUTPUT_O,
+    PARAM_C,
+    PARAM_R,
+    PARAM_V,
+    SWIZZLE_W,
+    SWIZZLE_X,
+    SWIZZLE_Y,
+    SWIZZLE_Z,
+    WRITEMASK_NAME,
+    WRITEMASK_W,
+    WRITEMASK_X,
+    WRITEMASK_XW,
+    WRITEMASK_XY,
+    WRITEMASK_XYW,
+    WRITEMASK_XYZ,
+    WRITEMASK_XYZW,
+    WRITEMASK_XZ,
+    WRITEMASK_XZW,
+    WRITEMASK_Y,
+    WRITEMASK_YW,
+    WRITEMASK_YZ,
+    WRITEMASK_YZW,
+    WRITEMASK_Z,
+    WRITEMASK_ZW,
+    OutputRegisters,
+)
 
 
 class _B(ctypes.LittleEndianStructure):
     _pack_ = 1
+
+    # mypy assumes that _fields_ may be 2-tuples from the base class, even though they are always 3-tuples in
+    # this use. This should be explicitly ignored via `# type: ignore[misc]`
     _fields_ = [
         ("A_SWZ_W", ctypes.c_uint32, 2),
         ("A_SWZ_Z", ctypes.c_uint32, 2),
@@ -104,7 +161,7 @@ _SWIZZLE_NAME = {
 }
 
 
-def _make_swizzle_name(x: int, y: int, z: int, w: int, suppress_nop=False) -> str:
+def _make_swizzle_name(x: int, y: int, z: int, w: int, *, suppress_nop=False) -> str:
     # Drop any repeated elements at the end of the list.
     components = [group[0] for group in itertools.groupby([x, y, z, w])]
 
@@ -126,7 +183,7 @@ def get_swizzle_name(swizzle: int) -> str:
 class VshInstruction:
     """Models nv2a vertex shader machine code."""
 
-    def __init__(self, empty_final=False):
+    def __init__(self, *, empty_final=False) -> None:
         self._b: _B
         self._c: _C
         self._d: _D
@@ -158,8 +215,8 @@ class VshInstruction:
 
             self.out_temp_reg = 7
             self.out_address = 0xFF
-            self.out_mux = OMUX_MAC
-            self.out_o_or_c = OUTPUT_O
+            self.out_mux = bool(OMUX_MAC)
+            self.out_o_or_c = bool(OUTPUT_O)
 
     def _set_empty(self):
         zero = bytes(b"\0" * 4)
@@ -172,10 +229,14 @@ class VshInstruction:
         self._set_empty()
         self.final = True
 
-    def set_values(self, values: List[int]):
+    def set_values(self, values: list[int]):
         """Sets the raw values for this instruction."""
-        assert len(values) == 4
-        assert values[0] == 0
+        if len(values) != 4:
+            msg = f"set_values must be exactly 4 elements but was {values!r}"
+            raise ValueError(msg)
+        if values[0] != 0:
+            msg = f"First element must be zero {values!r}"
+            raise ValueError(msg)
 
         self._b = _B.from_buffer_copy(values[1].to_bytes(4, byteorder=sys.byteorder))
         self._c = _C.from_buffer_copy(values[2].to_bytes(4, byteorder=sys.byteorder))
@@ -420,7 +481,7 @@ class VshInstruction:
         return bool(self._d.OUT_MUX)
 
     @out_mux.setter
-    def out_mux(self, val: bool):
+    def out_mux(self, val: bool | Literal[0, 1]):
         if val:
             self._d.OUT_MUX = 1
         else:
@@ -441,11 +502,8 @@ class VshInstruction:
     # This switches output address being treated as an output register or a constant
     # OUTPUT_O or OUTPUT_C
     @out_o_or_c.setter
-    def out_o_or_c(self, val: bool):
-        if val:
-            self._d.OUT_ORB = 1
-        else:
-            self._d.OUT_ORB = 0
+    def out_o_or_c(self, val: bool | Literal[0, 1]):
+        self._d.OUT_ORB = 1 if val else 0
 
     @property
     def out_o_mask(self) -> int:
@@ -495,7 +553,7 @@ class VshInstruction:
     def c_temp_reg_low(self, val: int):
         self._d.C_TEMP_REG_LOW = val
 
-    def encode(self) -> List[int]:
+    def encode(self) -> list[int]:
         """Encodes this instruction into a machine code quadruplet."""
         a = 0
         b = struct.unpack("<L", self._b)[0]
@@ -513,7 +571,8 @@ class VshInstruction:
         elif src_index == 2:
             self.c_mux = val
         else:
-            raise Exception(f"Invalid field index {src_index}")
+            msg = f"Invalid field index {src_index}"
+            raise ValueError(msg)
 
     def set_temp_reg_field(self, src_index: int, val: int):
         """Sets the temp register access for the given src_index."""
@@ -524,9 +583,10 @@ class VshInstruction:
         elif src_index == 2:
             self.c_temp_reg = val
         else:
-            raise Exception(f"Invalid field index {src_index}")
+            msg = f"Invalid field index {src_index}"
+            raise ValueError(msg)
 
-    def set_negate_field(self, src_index: int, val: bool):
+    def set_negate_field(self, src_index: int, val: bool):  # noqa: FBT001 Boolean-typed positional argument
         """Sets the negate field for the given src_index."""
         if src_index == 0:
             self.a_negate = val
@@ -535,7 +595,8 @@ class VshInstruction:
         elif src_index == 2:
             self.c_negate = val
         else:
-            raise Exception(f"Invalid field index {src_index}")
+            msg = f"Invalid field index {src_index}"
+            raise ValueError(msg)
 
     def set_swizzle_fields(self, src_index: int, swizzle: int):
         """Sets the swizzle fields for the given src_index."""
@@ -555,9 +616,10 @@ class VshInstruction:
             self.c_swizzle_z = get_swizzle(swizzle, 2)
             self.c_swizzle_w = get_swizzle(swizzle, 3)
         else:
-            raise Exception(f"Invalid field index {src_index}")
+            msg = f"Invalid field index {src_index}"
+            raise ValueError(msg)
 
-    def _dissasemble_inputs(self) -> List[str]:
+    def _dissasemble_inputs(self) -> list[str]:
         def _process(mux, negate, temp_reg, x, y, z, w):
             if mux == PARAM_R:
                 ret = f"R{temp_reg}"
@@ -569,11 +631,12 @@ class VshInstruction:
             elif mux == PARAM_V:
                 ret = f"v{self.input_reg}"
             else:
-                raise Exception(f"Unknown mux code {mux}")
+                msg = f"Unknown mux code {mux}"
+                raise ValueError(msg)
             if negate:
                 ret = f"-{ret}"
 
-            swizzle = _make_swizzle_name(x, y, z, w, True)
+            swizzle = _make_swizzle_name(x, y, z, w, suppress_nop=True)
             if swizzle:
                 ret += f".{swizzle}"
             return ret
@@ -608,7 +671,7 @@ class VshInstruction:
 
         return [src_a, src_b, src_c]
 
-    def _disassemble_outputs(self) -> Tuple[List[str], List[str]]:
+    def _disassemble_outputs(self) -> tuple[list[str], list[str]]:
         """Returns a pair of lists of destination strings for (mac, ilu)."""
 
         mac_temp_destination = ""
@@ -627,10 +690,7 @@ class VshInstruction:
 
             # If this is a paired ILU instruction, ILU will write to R1 regardless of
             # the encoded target.
-            if self.mac:
-                ilu_temp_destination = f"R1{ilu_output_mask}"
-            else:
-                ilu_temp_destination = f"{dst_temp_reg_name}{ilu_output_mask}"
+            ilu_temp_destination = f"R1{ilu_output_mask}" if self.mac else f"{dst_temp_reg_name}{ilu_output_mask}"
 
         mac = []
         ilu = []
@@ -642,9 +702,7 @@ class VshInstruction:
             dst_output_index = self.out_address
 
             if self.out_o_or_c == OUTPUT_O:
-                dst_output_name = DESTINATION_REGISTER_TO_NAME_MAP_SHORT[
-                    dst_output_index
-                ]
+                dst_output_name = DESTINATION_REGISTER_TO_NAME_MAP_SHORT[OutputRegisters(dst_output_index)]
             else:
                 dst_output_name = f"c[{dst_output_index}]"
 
@@ -652,7 +710,9 @@ class VshInstruction:
             if self.out_mux == OMUX_MAC:
                 mac.append(out_destination)
             else:
-                assert self.out_mux == OMUX_ILU
+                if self.out_mux != OMUX_ILU:
+                    msg = f"out_mux must be OMUX_ILU, but is {self.out_mux}"
+                    raise ValueError(msg)
                 ilu.append(out_destination)
 
         if mac_temp_destination:
@@ -661,24 +721,26 @@ class VshInstruction:
             ilu.append(ilu_temp_destination)
 
         # ARL implicitly writes to A0 and implicitly uses an "x" write mask.
-        if self.mac == self.mac == MAC.MAC_ARL:
-            assert not mac
+        if self.mac == MAC.MAC_ARL:
+            if mac:
+                msg = "ARL implicitly writes to A0 with an x mask; mac must not be specified"
+                raise ValueError(msg)
             mac = [f"{DESTINATION_REGISTER_TO_NAME_MAP_SHORT[OutputRegisters.REG_A0]}"]
 
         return mac, ilu
 
-    def _disassemble_operands(self) -> Tuple[str, str]:
+    def _disassemble_operands(self) -> tuple[str, str]:
         """Returns a pair of operands for (mac, ilu)."""
         mac = ""
         ilu = ""
         if self.mac:
-            mac = MAC_NAMES[self.mac]
+            mac = MAC_NAMES[MAC(self.mac)]
         if self.ilu:
-            ilu = ILU_NAMES[self.ilu]
+            ilu = ILU_NAMES[ILU(self.ilu)]
         return mac, ilu
 
-    def _filter_mac_inputs(self, inputs) -> List[str]:
-        if self.mac == MAC.MAC_MOV or self.mac == MAC.MAC_ARL:
+    def _filter_mac_inputs(self, inputs) -> list[str]:
+        if self.mac in {MAC.MAC_MOV, MAC.MAC_ARL}:
             mac_inputs = [inputs[0]]
         elif self.mac in {
             MAC.MAC_MUL,
@@ -697,7 +759,8 @@ class VshInstruction:
         elif self.mac == MAC.MAC_MAD:
             mac_inputs = inputs
         else:
-            raise Exception(f"Unsupported MAC operand {self.mac}")
+            msg = f"Unsupported MAC operand {self.mac}"
+            raise ValueError(msg)
         return mac_inputs
 
     def disassemble_to_dict(self) -> dict:
@@ -753,35 +816,41 @@ class VshInstruction:
 
         values = []
 
-        for f in _B._fields_:
-            val = getattr(self._b, f[0])
-            name = f[0]
-            values.append(f"{name}: 0x{val:x} ({val:0{f[2]}b})")
-        for f in _C._fields_:
-            val = getattr(self._c, f[0])
-            name = f[0]
-            values.append(f"{name}: 0x{val:x} ({val:0{f[2]}b})")
-        for f in _D._fields_:
-            val = getattr(self._d, f[0])
-            name = f[0]
-            values.append(f"{name}: 0x{val:x} ({val:0{f[2]}b})")
+        # mypy assumes that _fields_ may be 2-tuples from the base class, even though they are always 3-tuples in
+        # this use.
+        for name, _ctype, size in _B._fields_:  # type: ignore[misc]
+            val = getattr(self._b, name)
+            values.append(f"{name}: 0x{val:x} ({val:0{size}b})")
+        for name, _ctype, size in _C._fields_:  # type: ignore[misc]
+            val = getattr(self._c, name)
+            values.append(f"{name}: 0x{val:x} ({val:0{size}b})")
+        for name, _ctype, size in _D._fields_:  # type: ignore[misc]
+            val = getattr(self._d, name)
+            values.append(f"{name}: 0x{val:x} ({val:0{size}b})")
 
         pretty_raw_values = ", ".join([f"0x{val:08X}" for val in self.encode()])
         return f"{pretty_raw_values}:\n\t" + "\n\t".join(values)
 
 
-def vsh_diff_instructions(
-    expected: List[int], actual: List[int], ignore_final_flag=False
-) -> str:
+def vsh_diff_instructions(expected: list[int], actual: list[int], *, ignore_final_flag=False) -> str:
     """Provides a verbose explanation of the difference of two encoded instructions.
 
     :return "" if the instructions match, else a string explaining the delta.
     """
 
+    if len(expected) != 4:
+        msg = f"expected {expected!r} must be a 4-integer encoded instruction"
+        raise ValueError(msg)
+    if len(actual) != 4:
+        msg = f"actual {actual!r} must be a 4-integer encoded instruction"
+        raise ValueError(msg)
+
     differences = []
     if expected[0] != actual[0]:
-        assert expected[0] == 0
-        differences.append(f"Invalid instruction, [0](0x{actual[0]:08x} must == 0")
+        if expected[0] != 0:
+            msg = f"First value in expected {expected!r} must be 0"
+            raise ValueError(msg)
+        differences.append(f"Invalid instruction, [0](0x{actual[0]:08x}) must == 0")
 
     e_b = _B.from_buffer_copy(expected[1].to_bytes(4, byteorder=sys.byteorder))
     a_b = _B.from_buffer_copy(actual[1].to_bytes(4, byteorder=sys.byteorder))
@@ -793,9 +862,7 @@ def vsh_diff_instructions(
         if e_val != a_val:
             name = f[0]
 
-            differences.append(
-                f"{name} 0x{e_val:x} ({e_val:0{f[2]}b}) != actual 0x{a_val:x} ({a_val:0{f[2]}b})"
-            )
+            differences.append(f"{name} 0x{e_val:x} ({e_val:0{f[2]}b}) != actual 0x{a_val:x} ({a_val:0{f[2]}b})")  # type: ignore[misc]
 
     e_c = _C.from_buffer_copy(expected[2].to_bytes(4, byteorder=sys.byteorder))
     a_c = _C.from_buffer_copy(actual[2].to_bytes(4, byteorder=sys.byteorder))
@@ -806,9 +873,7 @@ def vsh_diff_instructions(
         if e_val != a_val:
             name = f[0]
 
-            differences.append(
-                f"{name} 0x{e_val:x} ({e_val:0{f[2]}b}) != actual 0x{a_val:x} ({a_val:0{f[2]}b})"
-            )
+            differences.append(f"{name} 0x{e_val:x} ({e_val:0{f[2]}b}) != actual 0x{a_val:x} ({a_val:0{f[2]}b})")  # type: ignore[misc]
 
     e_d = _D.from_buffer_copy(expected[3].to_bytes(4, byteorder=sys.byteorder))
     a_d = _D.from_buffer_copy(actual[3].to_bytes(4, byteorder=sys.byteorder))
@@ -822,9 +887,7 @@ def vsh_diff_instructions(
         if e_val != a_val:
             name = f[0]
 
-            differences.append(
-                f"{name} 0x{e_val:x} ({e_val:0{f[2]}b}) != actual 0x{a_val:x} ({a_val:0{f[2]}b})"
-            )
+            differences.append(f"{name} 0x{e_val:x} ({e_val:0{f[2]}b}) != actual 0x{a_val:x} ({a_val:0{f[2]}b})")  # type: ignore[misc]
 
     if not differences:
         return ""
@@ -841,8 +904,8 @@ def vsh_diff_instructions(
     )
 
 
-def explain(values: List[int]) -> str:
+def explain(values: list[int]) -> str:
     """Returns a textual description of the given machine code quadruplet."""
-    vsh = VshInstruction(True)
+    vsh = VshInstruction(empty_final=True)
     vsh.set_values(values)
     return vsh.explain()

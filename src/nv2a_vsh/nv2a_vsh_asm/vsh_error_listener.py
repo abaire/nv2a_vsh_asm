@@ -1,14 +1,25 @@
 """Capturing ANTLR ErrorListener implementation."""
 
+# ruff: noqa:  N802 Function name should be lowercase
+# ruff: noqa:  N803 Argument name should be lowercase
+
 # pylint: disable=invalid-name
 # pylint: disable=missing-function-docstring
 # pylint: disable=wrong-import-order
 # pylint: disable=too-many-arguments
 
-import collections
+from __future__ import annotations
+
+import typing
+
 from antlr4.error.ErrorListener import ErrorListener
 
-VshError = collections.namedtuple("VshError", ["message", "symbol", "line", "column"])
+
+class VshError(typing.NamedTuple):
+    message: str
+    symbol: str
+    line: int
+    column: int
 
 
 class VshErrorListener(ErrorListener):
@@ -18,6 +29,8 @@ class VshErrorListener(ErrorListener):
         self.errors = []
 
     def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
+        del recognizer
+        del e
         self.errors.append(VshError(msg, offendingSymbol, line, column))
 
     @property

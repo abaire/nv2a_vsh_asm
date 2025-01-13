@@ -3,5 +3,3 @@
 
 class EncodingError(Exception):
     """Represents a fatal error during encoding."""
-
-    pass
