@@ -23,8 +23,10 @@ function reformat {
   # perform an in-place fix.
   local files_to_format="$(echo "${changed_python_filenames}" | grep -v '3rdparty')"
   if [[ -n "${files_to_format}" ]]; then
+    set -e
     hatch fmt
     hatch run types:check
+    set +e
 
     echo "${files_to_format}" | xargs git add
   fi
