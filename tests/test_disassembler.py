@@ -19,37 +19,43 @@ from nv2a_vsh import disassemble
 def test_text_input_parser_empty() -> None:
     test = io.StringIO("")
     result = disassemble._parse_text_input(test)
-    assert [] == result
+    assert result == []
 
 
 def test_text_input_parser_valid_single_line_one_instruction() -> None:
     test = io.StringIO("0x0,0x1,0x2,0x3")
     result = disassemble._parse_text_input(test)
-    assert [[0, 1, 2, 3]] == result
+    assert result == [[0, 1, 2, 3]]
 
 
 def test_text_input_parser_valid_multiple_lines_one_instruction() -> None:
     test = io.StringIO("0x0,0x1,\n\t0x2,   0x3  ")
     result = disassemble._parse_text_input(test)
-    assert [[0, 1, 2, 3]] == result
+    assert result == [[0, 1, 2, 3]]
 
 
 def test_text_input_parser_valid_single_line_multiple_instructions() -> None:
     test = io.StringIO("0x0,0x1,0x2,0x3")
     result = disassemble._parse_text_input(test)
-    assert [[0, 1, 2, 3]] == result
+    assert result == [[0, 1, 2, 3]]
 
 
 def test_text_input_parser_valid_multiple_lines_multiple_instructions() -> None:
     test = io.StringIO("0x0,0x1,0x2,0x3")
     result = disassemble._parse_text_input(test)
-    assert [[0, 1, 2, 3]] == result
+    assert result == [[0, 1, 2, 3]]
 
 
 def test_disassembler_empty() -> None:
     test: list[list[int]] = []
     result = disassemble.disassemble(test, explain=False)
-    assert [] == result
+    assert result == []
+
+
+def test_disassembler_explicit_nop() -> None:
+    test: list[list[int]] = [[0, 0, 0, 0]]
+    result = disassemble.disassemble(test, explain=False)
+    assert result == ["/* 0, 0, 0, 0 */"]
 
 
 @pytest.mark.parametrize(
