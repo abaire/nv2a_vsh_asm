@@ -101,6 +101,7 @@ simply translates operands into machine code.
 
 ### Temporary registers
 * `r0` - `r11`
+* `r12` - read-only view of the `oPos` output register
 
 ### Constant/uniform registers
 * `c0` - `c191`
