@@ -763,8 +763,11 @@ class VshInstruction:
             raise ValueError(msg)
         return mac_inputs
 
-    def disassemble_to_dict(self) -> dict:
+    def disassemble_to_dict(self) -> dict[str, dict]:
         mac, ilu = self._disassemble_operands()
+        if not any([mac, ilu]):
+            # Handle explicit nop instructions used in some cases to wipe out values beyond the end of the shader.
+            return {}
         mac_outputs, ilu_outputs = self._disassemble_outputs()
         inputs = self._dissasemble_inputs()
 
@@ -787,6 +790,8 @@ class VshInstruction:
     def disassemble(self) -> str:
         """Disassembles this instruction into assembly language."""
         info = self.disassemble_to_dict()
+        if not info:
+            return "/* 0, 0, 0, 0 */"
 
         ret = []
         mac = info.get("mac")
