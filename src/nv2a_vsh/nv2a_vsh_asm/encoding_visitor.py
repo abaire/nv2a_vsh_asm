@@ -415,8 +415,8 @@ class EncodingVisitor(VshVisitor):
         return None
 
     def visitUniform_type(self, ctx: VshParser.Uniform_typeContext):
-        if len(ctx.children) != 1:
-            msg = f"ctx.children {ctx.children!r} must have exactly one element"
+        if not ctx.children or len(ctx.children) != 1:
+            msg = f"Uniform macro missing type type declaration on line {ctx.start.line}\nctx.children {ctx.children!r} must have exactly one element"
             raise ValueError(msg)
         if ctx.children[0].symbol.type not in _UNIFORM_TYPE_TO_SIZE:
             msg = (
@@ -430,6 +430,10 @@ class EncodingVisitor(VshVisitor):
         uniform_type = self.visitChildren(ctx)[0]
         if len(ctx.children) != 3:
             msg = f"ctx.children {ctx.children!r} must have exactly three elements"
+            raise ValueError(msg)
+
+        if ctx.children[2].symbol.tokenIndex < 0:
+            msg = f"Uniform macro missing constant index on line {ctx.start.line}\nctx.children[2].symbol.tokenIndex = {ctx.children[2].symbol.tokenIndex}"
             raise ValueError(msg)
 
         identifier = ctx.children[0].symbol.text

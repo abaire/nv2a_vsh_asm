@@ -10,6 +10,8 @@ import os
 import pathlib
 import re
 
+import pytest
+
 from nv2a_vsh.nv2a_vsh_asm import vsh_instruction
 from nv2a_vsh.nv2a_vsh_asm.assembler import Assembler
 
@@ -179,6 +181,20 @@ def test_relative_const_spaced_a_second():
     _assert_final_marker(results)
     assert len(results) == 2
     _assert_vsh([0x00000000, 0x00478C00, 0x0836186C, 0x2F300FFA], results[0])
+
+
+def test_uniform_missing_type():
+    asm = Assembler("#missing_type 96\n")
+
+    with pytest.raises(ValueError, match=re.escape("Uniform macro missing type type declaration on line 1")):
+        asm.assemble()
+
+
+def test_uniform_missing_index():
+    asm = Assembler("#missing_index vector\n")
+
+    with pytest.raises(ValueError, match=re.escape("Uniform macro missing constant index on line 1")):
+        asm.assemble()
 
 
 def test_uniform_vector_bare():
