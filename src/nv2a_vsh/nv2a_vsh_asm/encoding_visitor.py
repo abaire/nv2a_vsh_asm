@@ -905,12 +905,15 @@ class EncodingVisitor(VshVisitor):
             ),
         ]
 
+    _MASK_TRANSLATION_TABLE = str.maketrans("rgba", "xyzw")
+
     @staticmethod
-    def _process_destination_mask(mask):
+    def _process_destination_mask(mask: CommonToken) -> int:
         if not mask:
             return vsh_encoder.WRITEMASK_XYZW
 
-        return _DESTINATION_MASK_LOOKUP[mask.text.lower()]
+        translated_mask = mask.text.lower().translate(EncodingVisitor._MASK_TRANSLATION_TABLE)
+        return _DESTINATION_MASK_LOOKUP[translated_mask]
 
     def _process_output(self, target, mask):
         mask = self._process_destination_mask(mask)
@@ -951,7 +954,8 @@ class EncodingVisitor(VshVisitor):
             return vsh_encoder_defs.SWIZZLE_XYZW
 
         # ".zzzz"
-        swizzle_elements = swizzle.text[1:].lower()
+        swizzle_elements = swizzle.text[1:].lower().translate(EncodingVisitor._MASK_TRANSLATION_TABLE)
+
         elements = [_SWIZZLE_LOOKUP[c] for c in swizzle_elements]
         return vsh_encoder.make_swizzle(*elements)
 

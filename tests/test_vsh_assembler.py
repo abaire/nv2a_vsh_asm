@@ -61,6 +61,15 @@ def test_mov_out_in_swizzled():
     _assert_vsh([0x00000000, 0x002000BF, 0x0836106C, 0x2070C848], results[0])
 
 
+def test_mov_out_in_color_swizzled():
+    asm = Assembler("MOV oT0.rg,v0.ba")
+    asm.assemble()
+    results = asm.output
+    _assert_final_marker(results)
+    assert len(results) == 2
+    _assert_vsh([0x00000000, 0x002000BF, 0x0836106C, 0x2070C848], results[0])
+
+
 def test_bare_const():
     asm = Assembler("DPH oT0.x, v4, c15")
     asm.assemble()
