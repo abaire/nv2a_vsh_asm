@@ -166,3 +166,24 @@ instructions; e.g., `mov r0, #uniform_name`.
 A `matrix4` type aliases a contiguous set of 4 `c` registers. E.g., to give a
 symbolic name to a model matrix passed at 'c96': `#my_model_matrix matrix4 96`.
 To access the second row: `mul r0, v0.y, #my_model_matrix[1]`.
+
+
+## Operation macros
+
+Higher level operations are supported via macros that expand to multiple
+instructions.
+
+### matmul4x4 - Multiply a 4 element vector by a 4x4 matrix
+
+`%matmul4x4 <dst> <register> <#matrix4_uniform>`
+
+Expands to 4 commands.
+
+```
+%matmul4x4 r0 iPos #model_matrix
+------------------------------------
+dp4 r0.x, iPos, #model_matrix[0]
+dp4 r0.y, iPos, #model_matrix[1]
+dp4 r0.z, iPos, #model_matrix[2]
+dp4 r0.w, iPos, #model_matrix[3]
+```

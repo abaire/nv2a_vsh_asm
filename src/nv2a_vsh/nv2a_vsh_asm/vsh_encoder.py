@@ -53,10 +53,12 @@ from nv2a_vsh.nv2a_vsh_asm.vsh_encoder_defs import (
     PARAM_C,
     PARAM_R,
     PARAM_V,
+    R12,
     SWIZZLE_XYZW,
     VSH_MASK,
     WRITEMASK_NAME,
     WRITEMASK_XYZW,
+    OutputRegisters,
 )
 from nv2a_vsh.nv2a_vsh_asm.vsh_encoder_defs import (
     make_swizzle as make_swizzle,
@@ -156,6 +158,9 @@ class SourceRegister:
             f"{type(self).__name__}({self.file} " f"{self.index} " f"{vsh_instruction.get_swizzle_name(self.swizzle)})"
         )
 
+    def copy_with_swizzle(self, swizzle: int) -> SourceRegister:
+        return SourceRegister(self.file, self.index, swizzle=swizzle, rel_addr=self.rel_addr, negate=self.negate)
+
 
 class DestinationRegister:
     """Models information about a destination register."""
@@ -195,6 +200,25 @@ class DestinationRegister:
     def pretty_string(self) -> str:
         """Returns a pretty-printed string describing this destination register."""
         return f"{self.file} {self.index}{WRITEMASK_NAME[self.write_mask]}"
+
+    def copy_with_mask(self, write_mask: int) -> DestinationRegister:
+        """Returns a copy of this DestinationRegister with a different write_mask."""
+        return DestinationRegister(self.file, self.index, write_mask=write_mask, rel_addr=self.rel_addr)
+
+
+def destination_for_temp_register(temp_register: SourceRegister) -> DestinationRegister:
+    """Returns a DestinationRegister for the given SourceRegister (which must be read/write)."""
+
+    if temp_register.swizzle != SWIZZLE_XYZW:
+        msg = f"Cannot create DestinationRegister for swizzled source register {temp_register}"
+        raise ValueError(msg)
+
+    if temp_register.file != RegisterFile.PROGRAM_TEMPORARY:
+        msg = f"Cannot create DestinationRegister for non read/write source register {temp_register}"
+        raise ValueError(msg)
+    if temp_register.file == RegisterFile.PROGRAM_TEMPORARY and temp_register.index == R12:
+        return DestinationRegister(RegisterFile.PROGRAM_OUTPUT, OutputRegisters.REG_POS)
+    return DestinationRegister(temp_register.file, index=temp_register.index)
 
 
 class Instruction:

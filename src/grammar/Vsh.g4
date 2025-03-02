@@ -4,6 +4,7 @@ grammar Vsh;
 program : statement* EOF ;
 statement :
     NEWLINE
+    | macro_matrix_4x4_multiply
     | combined_operation
     | operation
     | uniform_declaration
@@ -81,6 +82,11 @@ p_input_raw : (REG_Rx | REG_INPUT | REG_R12 | reg_const | uniform_const) (SWIZZL
 p_input_negated : NEGATE p_input_raw ;
 p_input : p_input_raw | p_input_negated ;
 
+// %matmul dst src #matrix
+macro_matrix_4x4_multiply :
+    MACRO_MATRIX_4X4_MULTIPLY p_output p_input uniform_const
+    ;
+
 uniform_type :
     TYPE_MATRIX4
     | TYPE_VECTOR
@@ -89,6 +95,9 @@ uniform_type :
 uniform_declaration :
     UNIFORM_IDENTIFIER uniform_type INTEGER
     ;
+
+// Command macros expand to multiple instructions
+MACRO_MATRIX_4X4_MULTIPLY : '%' ('matmul4x4' | 'MATMUL4X4') ;
 
 NEGATE : '-' ;
 INTEGER : [0-9]+ ;
@@ -220,7 +229,6 @@ OP_RSQ : 'RSQ' | 'rsq' ;
 
 OP_RCC : 'RCC' | 'rcc' ;
 
-UNIFORM_DEFINITION : '%' ('uniform' | 'UNIFORM') ;
 TYPE_VECTOR : 'vector' | 'VECTOR' ;
 TYPE_MATRIX4 : ('matrix' | 'MATRIX') '4' ;
 
@@ -239,3 +247,4 @@ BLOCK_COMMENT : '/*' .*? '*/' NEWLINE -> skip ;
 
 
 BAD_INPUT : .  ;
+

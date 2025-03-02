@@ -305,6 +305,65 @@ def test_uniform_matrix_output_bare2():
     _assert_vsh([0x00000000, 0x0020061B, 0x0836106C, 0x2070F5E0], results[0])
 
 
+def test_matmul4x4_too_few_parameters():
+    asm = Assembler("#test_matrix matrix4 14\n" "%matmul4x4 r0")
+    with pytest.raises(ValueError, match=re.escape("Invalid parameters to %matmul4x4 on line 2")):
+        asm.assemble()
+
+
+def test_matmul4x4_invalid_matrix_uniform_parameter_not_defined():
+    asm = Assembler("#test_matrix matrix4 14\n" "%matmul4x4 r0 r0 r0")
+    with pytest.raises(ValueError, match=re.escape("Invalid matrix uniform parameter on line 2")):
+        asm.assemble()
+
+
+def test_matmul4x4_invalid_matrix_uniform_type():
+    asm = Assembler("#test_matrix vector 14\n" "%matmul4x4 r0 iPos #test_matrix")
+    with pytest.raises(ValueError, match=re.escape("Invalid matrix uniform type on line 2")):
+        asm.assemble()
+
+
+def test_matmul4x4_invalid_matrix_uniform_offset():
+    asm = Assembler("#test_matrix matrix4 14\n" "%matmul4x4 r0 iPos #test_matrix[1]")
+    with pytest.raises(ValueError, match=re.escape("Invalid matrix uniform offset on line 2")):
+        asm.assemble()
+
+
+def test_matmul4x4_valid():
+    asm = Assembler("#test_matrix matrix4 14\n" "%matmul4x4 r0 iPos #test_matrix")
+    asm.assemble()
+    results = asm.output
+    _assert_final_marker(results)
+    assert len(results) == 5
+    _assert_program(
+        [
+            [0, 14794779, 137762924, 671092728],
+            [0, 14802971, 137762924, 603983864],
+            [0, 14811163, 137762924, 570429432],
+            [0, 14819355, 137762924, 553652216],
+        ],
+        results,
+    )
+
+
+def test_matmul4x4_valid_with_following_instruction():
+    asm = Assembler("#test_matrix matrix4 14\n" "%matmul4x4 r0 iPos #test_matrix\n" "mov r1, r0")
+    asm.assemble()
+    results = asm.output
+    _assert_final_marker(results)
+    assert len(results) == 6
+    _assert_program(
+        [
+            [0, 14794779, 137762924, 671092728],
+            [0, 14802971, 137762924, 603983864],
+            [0, 14811163, 137762924, 570429432],
+            [0, 14819355, 137762924, 553652216],
+            [0, 2097179, 70652012, 789581816],
+        ],
+        results,
+    )
+
+
 def test_paired():
     asm = Assembler("MUL R2.xyzw, R1, c[0] + MOV oD1.xyzw, v4")
     asm.assemble()
@@ -418,3 +477,12 @@ def _assert_final_marker(results):
 def _assert_vsh(expected: list[int], actual: list[int]):
     diff = vsh_instruction.vsh_diff_instructions(expected, actual)
     assert not diff
+
+
+def _assert_program(expected: list[list[int]], actual: list[list[int]]):
+    # Assume that the terminator was checked via assert final marker
+    for i, actual_line in enumerate(actual):
+        if i == len(expected):
+            assert actual_line == [0, 0, 0, 1], "Actual data is longer than expected"
+            return
+        _assert_vsh(expected[i], actual_line)
