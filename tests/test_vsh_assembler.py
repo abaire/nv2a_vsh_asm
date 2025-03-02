@@ -364,6 +364,52 @@ def test_matmul4x4_valid_with_following_instruction():
     )
 
 
+def test_norm3__too_few_parameters():
+    asm = Assembler("%norm3 r0")
+    with pytest.raises(ValueError, match=re.escape("Invalid parameters to %norm3 on line 1")):
+        asm.assemble()
+
+
+def test_norm3__invalid_temp_register_not_read_write():
+    asm = Assembler("%norm3 r0 iNormal iPos")
+    with pytest.raises(ValueError, match=re.escape("Invalid temp register parameter on line 1")):
+        asm.assemble()
+
+
+def test_norm3__invalid_temp_register_is_destination_register():
+    asm = Assembler("%norm3 r0 iNormal oPos")
+    with pytest.raises(ValueError, match=re.escape("Invalid parameters to %norm3 on line 1")):
+        asm.assemble()
+
+
+def test_norm3__invalid_temp_register_is_read_only_r12_register():
+    asm = Assembler("%norm3 r0 iNormal r12")
+    with pytest.raises(ValueError, match=re.escape("Invalid temp register parameter on line 1")):
+        asm.assemble()
+
+
+def test_norm3__invalid_temp_register_is_source_register():
+    asm = Assembler("%norm3 oPos r0 iPos")
+    with pytest.raises(ValueError, match=re.escape("Invalid temp register parameter on line 1")):
+        asm.assemble()
+
+
+def test_norm3__valid():
+    asm = Assembler("%norm3 r0 iNormal r1")
+    asm.assemble()
+    results = asm.output
+    _assert_final_marker(results)
+    assert len(results) == 4
+    _assert_program(
+        [
+            [0, 10486811, 137760876, 672141304],
+            [0, 134217755, 137760768, 1343295480],
+            [0, 4195355, 159393900, 771756024],
+        ],
+        results,
+    )
+
+
 def test_paired():
     asm = Assembler("MUL R2.xyzw, R1, c[0] + MOV oD1.xyzw, v4")
     asm.assemble()
