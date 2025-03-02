@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 import antlr4
 
 from nv2a_vsh.grammar.vsh.VshLexer import VshLexer
@@ -51,6 +53,16 @@ class Assembler:
             self._pretty_sources = ()
             return True
 
+        def flatten(xs):
+            for x in xs:
+                if isinstance(x, tuple):
+                    yield x
+                elif isinstance(x, Iterable):
+                    yield from flatten(x)
+                else:
+                    yield x
+
+        program = flatten(program)
         instructions, sources = zip(*program)
         self._output = vsh_encoder.encode(instructions, **kwargs)  # type: ignore[arg-type]
         self._pretty_sources = sources  # type: ignore[assignment]

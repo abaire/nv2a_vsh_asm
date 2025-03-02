@@ -39,11 +39,12 @@ def _main(args):
     log_level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(level=log_level)
 
-    if not os.path.isfile(args.input):
+    input_file = os.path.abspath(os.path.expanduser(args.input))
+    if not os.path.isfile(input_file):
         print(f"Failed to open input file '{args.input}'", file=sys.stderr)
         return 1
 
-    with open(args.input) as infile:
+    with open(input_file) as infile:
         source = infile.read()
     results, errors = assemble_to_c(source, explicit_final=args.explicit_final)
     if errors:

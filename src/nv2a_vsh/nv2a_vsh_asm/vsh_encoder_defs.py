@@ -177,6 +177,9 @@ WRITEMASK_NAME = {
     WRITEMASK_XYZW: "",
 }
 
+# Index of the special R12 register, which is a read alias for oPos.
+R12 = 12
+
 
 class InputRegisters(enum.IntEnum):
     """Defines the valid input registers for nv2a hardware."""

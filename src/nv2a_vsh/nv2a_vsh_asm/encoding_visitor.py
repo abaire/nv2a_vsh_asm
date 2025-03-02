@@ -18,11 +18,15 @@ from typing import TYPE_CHECKING
 from nv2a_vsh.grammar.vsh.VshLexer import VshLexer
 from nv2a_vsh.grammar.vsh.VshVisitor import VshVisitor
 from nv2a_vsh.nv2a_vsh_asm import vsh_encoder, vsh_encoder_defs, vsh_instruction
-from nv2a_vsh.nv2a_vsh_asm.encoding_error import EncodingError
+from nv2a_vsh.nv2a_vsh_asm.encoding_error import EncodingError, EncodingErrorSubtype
 from nv2a_vsh.nv2a_vsh_asm.vsh_encoder_defs import InputRegisters, OutputRegisters
 
 if TYPE_CHECKING:
+    from antlr4.ParserRuleContext import ParserRuleContext
+    from antlr4.Token import CommonToken
+
     from nv2a_vsh.grammar.vsh.VshParser import VshParser
+    from nv2a_vsh.nv2a_vsh_asm.vsh_encoder import Instruction
 
 _DESTINATION_MASK_LOOKUP = {
     ".x": vsh_encoder_defs.WRITEMASK_X,
@@ -135,6 +139,10 @@ _UNIFORM_TYPE_TO_SIZE = {
 }
 
 
+def get_text_from_context(ctx: ParserRuleContext) -> str:
+    return ctx.start.getInputStream().getText(ctx.start.start, ctx.stop.stop)
+
+
 class _Uniform:
     """Holds information about a uniform declaration."""
 
@@ -146,14 +154,22 @@ class _Uniform:
 
 
 class _ConstantRegister:
-    def __init__(self, index, *, is_relative=False):
+    def __init__(self, index, *, is_relative: bool = False, from_uniform: tuple[str, int] | None = None):
         self.index = index
         self.is_relative = is_relative
+        self.from_uniform = from_uniform
 
     @property
     def type(self):
         """Causes this instance to be treated as a special token type."""
         return _REG_CONSTANT
+
+    def copy_with_offset(self, offset: int) -> _ConstantRegister:
+        if self.is_relative:
+            msg = f"Cannot add an offset to relative ConstantRegister {self}"
+            raise ValueError(msg)
+        from_uniform = (self.from_uniform[0], offset) if self.from_uniform else None
+        return _ConstantRegister(self.index + offset, is_relative=False, from_uniform=from_uniform)
 
 
 def _merge_ops(
@@ -408,11 +424,8 @@ class EncodingVisitor(VshVisitor):
         super().__init__()
         self._uniforms: dict[str, _Uniform] = {}
 
-    def visitStatement(self, ctx: VshParser.StatementContext):
-        operations = self.visitChildren(ctx)
-        if operations:
-            return operations[0]
-        return None
+    def visitStatement(self, ctx: VshParser.StatementContext) -> list[tuple[Instruction, str]]:
+        return self.visitChildren(ctx)
 
     def visitUniform_type(self, ctx: VshParser.Uniform_typeContext):
         if not ctx.children or len(ctx.children) != 1:
@@ -426,7 +439,7 @@ class EncodingVisitor(VshVisitor):
 
         return ctx.children[0].symbol.type
 
-    def visitUniform_declaration(self, ctx: VshParser.Uniform_declarationContext):
+    def visitUniform_declaration(self, ctx: VshParser.Uniform_declarationContext) -> None:
         uniform_type = self.visitChildren(ctx)[0]
         if len(ctx.children) != 3:
             msg = f"ctx.children {ctx.children!r} must have exactly three elements"
@@ -444,7 +457,7 @@ class EncodingVisitor(VshVisitor):
             raise EncodingError(msg)
         self._uniforms[identifier] = _Uniform(identifier, uniform_type, value)
 
-    def visitOperation(self, ctx: VshParser.OperationContext):
+    def visitOperation(self, ctx: VshParser.OperationContext) -> tuple[Instruction, str]:
         instructions = self.visitChildren(ctx)
         if len(instructions) != 1:
             msg = f"instructions {instructions!r} must have exactly one element"
@@ -460,7 +473,7 @@ class EncodingVisitor(VshVisitor):
 
         return process_combined_operations(operations, ctx.start.line)
 
-    def visitOp_add(self, ctx: VshParser.Op_addContext):
+    def visitOp_add(self, ctx: VshParser.Op_addContext) -> tuple[Instruction, str]:
         operands = self.visitChildren(ctx)
         if len(operands) != 1:
             msg = f"operands {operands!r} must have exactly one element"
@@ -472,7 +485,7 @@ class EncodingVisitor(VshVisitor):
             f"add {self._prettify_operands(operands)}",
         )
 
-    def visitOp_arl(self, ctx: VshParser.Op_arlContext):
+    def visitOp_arl(self, ctx: VshParser.Op_arlContext) -> tuple[Instruction, str]:
         operands = self.visitChildren(ctx)
         if len(operands) != 1:
             msg = f"operands {operands!r} must have exactly one element"
@@ -484,7 +497,7 @@ class EncodingVisitor(VshVisitor):
             f"add {self._prettify_operands(operands)}",
         )
 
-    def visitOp_dp3(self, ctx: VshParser.Op_dp3Context):
+    def visitOp_dp3(self, ctx: VshParser.Op_dp3Context) -> tuple[Instruction, str]:
         operands = self.visitChildren(ctx)
         if len(operands) != 1:
             msg = f"operands {operands!r} must have exactly one element"
@@ -496,7 +509,7 @@ class EncodingVisitor(VshVisitor):
             f"dp3 {self._prettify_operands(operands)}",
         )
 
-    def visitOp_dp4(self, ctx: VshParser.Op_dp4Context):
+    def visitOp_dp4(self, ctx: VshParser.Op_dp4Context) -> tuple[Instruction, str]:
         operands = self.visitChildren(ctx)
         if len(operands) != 1:
             msg = f"operands {operands!r} must have exactly one element"
@@ -508,7 +521,7 @@ class EncodingVisitor(VshVisitor):
             f"dp4 {self._prettify_operands(operands)}",
         )
 
-    def visitOp_dph(self, ctx: VshParser.Op_dphContext):
+    def visitOp_dph(self, ctx: VshParser.Op_dphContext) -> tuple[Instruction, str]:
         operands = self.visitChildren(ctx)
         if len(operands) != 1:
             msg = f"operands {operands!r} must have exactly one element"
@@ -520,7 +533,7 @@ class EncodingVisitor(VshVisitor):
             f"dph {self._prettify_operands(operands)}",
         )
 
-    def visitOp_dst(self, ctx: VshParser.Op_dstContext):
+    def visitOp_dst(self, ctx: VshParser.Op_dstContext) -> tuple[Instruction, str]:
         operands = self.visitChildren(ctx)
         if len(operands) != 1:
             msg = f"operands {operands!r} must have exactly one element"
@@ -532,7 +545,7 @@ class EncodingVisitor(VshVisitor):
             f"dst {self._prettify_operands(operands)}",
         )
 
-    def visitOp_expp(self, ctx: VshParser.Op_exppContext):
+    def visitOp_expp(self, ctx: VshParser.Op_exppContext) -> tuple[Instruction, str]:
         operands = self.visitChildren(ctx)
         if len(operands) != 1:
             msg = f"operands {operands!r} must have exactly one element"
@@ -544,7 +557,7 @@ class EncodingVisitor(VshVisitor):
             f"expp {self._prettify_operands(operands)}",
         )
 
-    def visitOp_lit(self, ctx: VshParser.Op_litContext):
+    def visitOp_lit(self, ctx: VshParser.Op_litContext) -> tuple[Instruction, str]:
         operands = self.visitChildren(ctx)
         if len(operands) != 1:
             msg = f"operands {operands!r} must have exactly one element"
@@ -556,7 +569,7 @@ class EncodingVisitor(VshVisitor):
             f"lit {self._prettify_operands(operands)}",
         )
 
-    def visitOp_logp(self, ctx: VshParser.Op_logpContext):
+    def visitOp_logp(self, ctx: VshParser.Op_logpContext) -> tuple[Instruction, str]:
         operands = self.visitChildren(ctx)
         if len(operands) != 1:
             msg = f"operands {operands!r} must have exactly one element"
@@ -568,7 +581,7 @@ class EncodingVisitor(VshVisitor):
             f"logp {self._prettify_operands(operands)}",
         )
 
-    def visitOp_mad(self, ctx: VshParser.Op_madContext):
+    def visitOp_mad(self, ctx: VshParser.Op_madContext) -> tuple[Instruction, str]:
         operands = self.visitChildren(ctx)
         if len(operands) != 1:
             msg = f"operands {operands!r} must have exactly one element"
@@ -580,7 +593,7 @@ class EncodingVisitor(VshVisitor):
             f"mad {self._prettify_operands(operands)}",
         )
 
-    def visitOp_max(self, ctx: VshParser.Op_maxContext):
+    def visitOp_max(self, ctx: VshParser.Op_maxContext) -> tuple[Instruction, str]:
         operands = self.visitChildren(ctx)
         if len(operands) != 1:
             msg = f"operands {operands!r} must have exactly one element"
@@ -592,7 +605,7 @@ class EncodingVisitor(VshVisitor):
             f"max {self._prettify_operands(operands)}",
         )
 
-    def visitOp_min(self, ctx: VshParser.Op_minContext):
+    def visitOp_min(self, ctx: VshParser.Op_minContext) -> tuple[Instruction, str]:
         operands = self.visitChildren(ctx)
         if len(operands) != 1:
             msg = f"operands {operands!r} must have exactly one element"
@@ -604,7 +617,7 @@ class EncodingVisitor(VshVisitor):
             f"min {self._prettify_operands(operands)}",
         )
 
-    def visitOp_mov(self, ctx: VshParser.Op_movContext):
+    def visitOp_mov(self, ctx: VshParser.Op_movContext) -> tuple[Instruction, str]:
         operands = self.visitChildren(ctx)
         if len(operands) != 1:
             msg = f"operands {operands!r} must have exactly one element"
@@ -616,7 +629,7 @@ class EncodingVisitor(VshVisitor):
             f"mov {self._prettify_operands(operands)}",
         )
 
-    def visitOp_mul(self, ctx: VshParser.Op_mulContext):
+    def visitOp_mul(self, ctx: VshParser.Op_mulContext) -> tuple[vsh_encoder.Instruction, str]:
         operands = self.visitChildren(ctx)
         if len(operands) != 1:
             msg = f"operands {operands!r} must have exactly one element"
@@ -628,7 +641,7 @@ class EncodingVisitor(VshVisitor):
             f"mul {self._prettify_operands(operands)}",
         )
 
-    def visitOp_rcc(self, ctx: VshParser.Op_rccContext):
+    def visitOp_rcc(self, ctx: VshParser.Op_rccContext) -> tuple[Instruction, str]:
         operands = self.visitChildren(ctx)
         if len(operands) != 1:
             msg = f"operands {operands!r} must have exactly one element"
@@ -640,7 +653,7 @@ class EncodingVisitor(VshVisitor):
             f"rcc {self._prettify_operands(operands)}",
         )
 
-    def visitOp_rcp(self, ctx: VshParser.Op_rcpContext):
+    def visitOp_rcp(self, ctx: VshParser.Op_rcpContext) -> tuple[Instruction, str]:
         operands = self.visitChildren(ctx)
         if len(operands) != 1:
             msg = f"operands {operands!r} must have exactly one element"
@@ -652,7 +665,7 @@ class EncodingVisitor(VshVisitor):
             f"rcp {self._prettify_operands(operands)}",
         )
 
-    def visitOp_rsq(self, ctx: VshParser.Op_rsqContext):
+    def visitOp_rsq(self, ctx: VshParser.Op_rsqContext) -> tuple[Instruction, str]:
         operands = self.visitChildren(ctx)
         if len(operands) != 1:
             msg = f"operands {operands!r} must have exactly one element"
@@ -664,7 +677,7 @@ class EncodingVisitor(VshVisitor):
             f"rsq {self._prettify_operands(operands)}",
         )
 
-    def visitOp_sge(self, ctx: VshParser.Op_sgeContext):
+    def visitOp_sge(self, ctx: VshParser.Op_sgeContext) -> tuple[Instruction, str]:
         operands = self.visitChildren(ctx)
         if len(operands) != 1:
             msg = f"operands {operands!r} must have exactly one element"
@@ -676,7 +689,7 @@ class EncodingVisitor(VshVisitor):
             f"sge {self._prettify_operands(operands)}",
         )
 
-    def visitOp_slt(self, ctx: VshParser.Op_sltContext):
+    def visitOp_slt(self, ctx: VshParser.Op_sltContext) -> tuple[Instruction, str]:
         operands = self.visitChildren(ctx)
         if len(operands) != 1:
             msg = f"operands {operands!r} must have exactly one element"
@@ -688,7 +701,7 @@ class EncodingVisitor(VshVisitor):
             f"slt {self._prettify_operands(operands)}",
         )
 
-    def visitOp_sub(self, ctx: VshParser.Op_subContext):
+    def visitOp_sub(self, ctx: VshParser.Op_subContext) -> tuple[Instruction, str]:
         operands = self.visitChildren(ctx)
         if len(operands) != 1:
             msg = f"operands {operands!r} must have exactly one element"
@@ -747,7 +760,7 @@ class EncodingVisitor(VshVisitor):
         contents = self.visitChildren(ctx)
         return contents[0]
 
-    def visitReg_const(self, ctx: VshParser.Reg_constContext):
+    def visitReg_const(self, ctx: VshParser.Reg_constContext) -> _ConstantRegister:
         reg = ctx.children[0].symbol
         if reg.type == VshLexer.REG_Cx_BARE:
             register = int(reg.text[1:])
@@ -778,7 +791,7 @@ class EncodingVisitor(VshVisitor):
         uniform: _Uniform | None = self._uniforms.get(name)
         if not uniform:
             msg = f"Undefined uniform {name} used at line {ctx.start.line}"
-            raise EncodingError(msg)
+            raise EncodingError(msg, subtype=EncodingErrorSubtype.UNDEFINED_UNIFORM)
 
         offset = 0
         if len(ctx.children) > 1:
@@ -786,9 +799,69 @@ class EncodingVisitor(VshVisitor):
 
         if offset >= uniform.size:
             msg = f"Uniform offset out of range (max is {uniform.size - 1}) at line {ctx.start.line}"
-            raise EncodingError(msg)
+            raise EncodingError(msg, subtype=EncodingErrorSubtype.UNIFORM_OFFSET_OUT_OF_RANGE)
 
-        return _ConstantRegister(uniform.value + offset)
+        return _ConstantRegister(uniform.value + offset, from_uniform=(name, offset))
+
+    def visitMacro_matrix_4x4_multiply(
+        self, ctx: VshParser.Macro_matrix_4x4_multiplyContext
+    ) -> list[tuple[Instruction, str]]:
+        usage = f"  Usage: {ctx.children[0].symbol.text} <destination> <source> <matrix_uniform>"
+        try:
+            operands = self.visitChildren(ctx)
+        except TypeError as err:
+            msg = f"Invalid parameters to {ctx.children[0].symbol.text} on line {ctx.start.line}: '{get_text_from_context(ctx)}'.\n{usage}"
+            raise ValueError(msg) from err
+        except EncodingError as err:
+            if err.subtype == EncodingErrorSubtype.UNDEFINED_UNIFORM:
+                msg = f"Invalid matrix uniform parameter on line {ctx.start.line}: '{get_text_from_context(ctx)}'.\n{usage}"
+            else:
+                msg = f"Invalid parameters to {ctx.children[0].symbol.text} on line {ctx.start.line}: '{get_text_from_context(ctx)}'.\n{usage}"
+            raise ValueError(msg) from err
+
+        matrix_uniform = operands[2]
+        uniform = matrix_uniform.from_uniform
+        if uniform:
+            uniform_name, uniform_offset = uniform
+            uniform_def = self._uniforms.get(uniform_name)
+            if not uniform_def or uniform_def.size != 4:
+                msg = f"Invalid matrix uniform type on line {ctx.start.line}: '{get_text_from_context(ctx)}'. Uniform must be matrix type.\n{usage}"
+                raise ValueError(msg)
+            if uniform_offset:
+                msg = f"Invalid matrix uniform offset on line {ctx.start.line}: '{get_text_from_context(ctx)}'. Uniform must be referenced at offset 0.\n{usage}"
+                raise ValueError(msg)
+
+        destination_register = operands[0]
+        source_register = operands[1]
+
+        destination_x = destination_register.copy_with_mask(vsh_encoder_defs.WRITEMASK_X)
+        destination_y = destination_register.copy_with_mask(vsh_encoder_defs.WRITEMASK_Y)
+        destination_z = destination_register.copy_with_mask(vsh_encoder_defs.WRITEMASK_Z)
+        destination_w = destination_register.copy_with_mask(vsh_encoder_defs.WRITEMASK_W)
+
+        matrix_0 = self._process_input(matrix_uniform.copy_with_offset(0))
+        matrix_1 = self._process_input(matrix_uniform.copy_with_offset(1))
+        matrix_2 = self._process_input(matrix_uniform.copy_with_offset(2))
+        matrix_3 = self._process_input(matrix_uniform.copy_with_offset(3))
+
+        return [
+            (
+                vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_DP4, destination_x, source_register, matrix_0),
+                f"dp4 {self._prettify_operands([destination_x, source_register, matrix_0])}",
+            ),
+            (
+                vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_DP4, destination_y, source_register, matrix_1),
+                f"dp4 {self._prettify_operands([destination_y, source_register, matrix_1])}",
+            ),
+            (
+                vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_DP4, destination_z, source_register, matrix_2),
+                f"dp4 {self._prettify_operands([destination_z, source_register, matrix_2])}",
+            ),
+            (
+                vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_DP4, destination_w, source_register, matrix_3),
+                f"dp4 {self._prettify_operands([destination_w, source_register, matrix_3])}",
+            ),
+        ]
 
     @staticmethod
     def _process_destination_mask(mask):
@@ -831,7 +904,7 @@ class EncodingVisitor(VshVisitor):
         raise EncodingError(msg)
 
     @staticmethod
-    def _process_source_swizzle(swizzle):
+    def _process_source_swizzle(swizzle: CommonToken | None) -> int:
         if not swizzle:
             return vsh_encoder_defs.SWIZZLE_XYZW
 
@@ -840,7 +913,7 @@ class EncodingVisitor(VshVisitor):
         elements = [_SWIZZLE_LOOKUP[c] for c in swizzle_elements]
         return vsh_encoder.make_swizzle(*elements)
 
-    def _process_input(self, source, swizzle):
+    def _process_input(self, source, swizzle: CommonToken | None = None):
         swizzle = self._process_source_swizzle(swizzle)
 
         if source.type in {VshLexer.REG_Rx, VshLexer.REG_R12}:
@@ -913,7 +986,7 @@ class EncodingVisitor(VshVisitor):
         msg = "TODO: Implement destination register prettification."
         raise EncodingError(msg)
 
-    def _prettify_operands(self, operands) -> str:
+    def _prettify_operands(self, operands: list) -> str:
         num_operands = len(operands)
         if not num_operands:
             return ""
