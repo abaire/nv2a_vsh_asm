@@ -5,6 +5,7 @@ program : statement* EOF ;
 statement :
     NEWLINE
     | macro_matrix_4x4_multiply
+    | macro_norm_3
     | combined_operation
     | operation
     | uniform_declaration
@@ -87,6 +88,11 @@ macro_matrix_4x4_multiply :
     MACRO_MATRIX_4X4_MULTIPLY p_output p_input uniform_const
     ;
 
+// %norm3 dst src temp
+macro_norm_3 :
+    MACRO_NORMALIZE_3 p_output p_input p_input
+    ;
+
 uniform_type :
     TYPE_MATRIX4
     | TYPE_VECTOR
@@ -98,6 +104,7 @@ uniform_declaration :
 
 // Command macros expand to multiple instructions
 MACRO_MATRIX_4X4_MULTIPLY : '%' ('matmul4x4' | 'MATMUL4X4') ;
+MACRO_NORMALIZE_3: '%' ('norm3' | 'NORM3') ;
 
 NEGATE : '-' ;
 INTEGER : [0-9]+ ;

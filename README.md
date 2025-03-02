@@ -175,7 +175,7 @@ instructions.
 
 ### matmul4x4 - Multiply a 4 element vector by a 4x4 matrix
 
-`%matmul4x4 <dst> <register> <#matrix4_uniform>`
+`%matmul4x4 <dst> <read_register> <#matrix4_uniform>`
 
 Expands to 4 commands.
 
@@ -186,4 +186,18 @@ dp4 r0.x, iPos, #model_matrix[0]
 dp4 r0.y, iPos, #model_matrix[1]
 dp4 r0.z, iPos, #model_matrix[2]
 dp4 r0.w, iPos, #model_matrix[3]
+```
+
+### norm3 - Normalize a 3-component vector.
+
+`%norm3 <dst> <read_register> <read_write_temp_register>`
+
+Expands to 3 commands and requires one sacrificial register.
+
+```
+%norm3 r2 iNormal r0
+------------------------------------
+dp3 r0.x, iNormal, iNormal  ; r0.x = len(normal)^2
+rsq r0.w, r0.x  ; r0.w = 1 / len(normal)
+mul r2.xyz, iNormal, r0.w  ; r2.xyz = normalized(normal)
 ```

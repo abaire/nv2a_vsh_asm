@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from antlr4.Token import CommonToken
 
     from nv2a_vsh.grammar.vsh.VshParser import VshParser
-    from nv2a_vsh.nv2a_vsh_asm.vsh_encoder import Instruction
+    from nv2a_vsh.nv2a_vsh_asm.vsh_encoder import DestinationRegister, Instruction, SourceRegister
 
 _DESTINATION_MASK_LOOKUP = {
     ".x": vsh_encoder_defs.WRITEMASK_X,
@@ -860,6 +860,48 @@ class EncodingVisitor(VshVisitor):
             (
                 vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_DP4, destination_w, source_register, matrix_3),
                 f"dp4 {self._prettify_operands([destination_w, source_register, matrix_3])}",
+            ),
+        ]
+
+    def visitMacro_norm_3(self, ctx: VshParser.Macro_norm_3Context):
+        usage = f"  Usage: {ctx.children[0].symbol.text} <destination> <source> <temp_register_rw>"
+        try:
+            operands = self.visitChildren(ctx)
+        except TypeError as err:
+            msg = f"Invalid parameters to {ctx.children[0].symbol.text} on line {ctx.start.line}: '{get_text_from_context(ctx)}'.\n{usage}"
+            raise ValueError(msg) from err
+
+        destination_register: DestinationRegister = operands[0]
+        source_register: SourceRegister = operands[1]
+        temp_register: SourceRegister = operands[2]
+
+        if temp_register.file != vsh_encoder.RegisterFile.PROGRAM_TEMPORARY or temp_register.index == vsh_encoder.R12:
+            msg = f"Invalid temp register parameter on line {ctx.start.line}. Temp register must be read/write: '{get_text_from_context(ctx)}'.\n{usage}"
+            raise ValueError(msg)
+
+        destination_register_xyz = destination_register.copy_with_mask(vsh_encoder_defs.WRITEMASK_XYZ)
+        temp_register_write = vsh_encoder.destination_for_temp_register(temp_register)
+        temp_register_x = temp_register_write.copy_with_mask(vsh_encoder_defs.WRITEMASK_X)
+        temp_register_read_x = temp_register.copy_with_swizzle(vsh_encoder_defs.SWIZZLE_X)
+        temp_register_w = temp_register_write.copy_with_mask(vsh_encoder_defs.WRITEMASK_W)
+        temp_register_read_w = temp_register.copy_with_swizzle(vsh_encoder_defs.SWIZZLE_W)
+
+        return [
+            (
+                vsh_encoder.Instruction(
+                    vsh_encoder.Opcode.OPCODE_DP3, temp_register_x, source_register, source_register
+                ),
+                f"dp3 {self._prettify_operands([temp_register_x, source_register, source_register])}",
+            ),
+            (
+                vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_RSQ, temp_register_w, temp_register_read_x),
+                f"rsq {self._prettify_operands([temp_register_w, temp_register_read_x])}",
+            ),
+            (
+                vsh_encoder.Instruction(
+                    vsh_encoder.Opcode.OPCODE_MUL, destination_register_xyz, source_register, temp_register_read_w
+                ),
+                f"mul {self._prettify_operands([destination_register_xyz, source_register, temp_register_read_w])}",
             ),
         ]
 
