@@ -913,8 +913,8 @@ class EncodingVisitor(VshVisitor):
         elements = [_SWIZZLE_LOOKUP[c] for c in swizzle_elements]
         return vsh_encoder.make_swizzle(*elements)
 
-    def _process_input(self, source, swizzle: CommonToken | None = None):
-        swizzle = self._process_source_swizzle(swizzle)
+    def _process_input(self, source, swizzle_token: CommonToken | None = None):
+        swizzle = self._process_source_swizzle(swizzle_token)
 
         if source.type in {VshLexer.REG_Rx, VshLexer.REG_R12}:
             register = int(source.text[1:])
