@@ -69,15 +69,16 @@ def _main(args):
     log_level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(level=log_level)
 
-    if not os.path.isfile(args.input):
+    input_file = os.path.abspath(os.path.expanduser(args.input))
+    if not os.path.isfile(input_file):
         print(f"Failed to open input file '{args.input}'", file=sys.stderr)
         return 1
 
     if args.text:
-        with open(args.input, encoding="utf-8") as infile:
+        with open(input_file, encoding="utf-8") as infile:
             values = _parse_text_input(infile)
     else:
-        with open(args.input, "rb") as infile:
+        with open(input_file, "rb") as infile:
             values = _parse_binary_input(infile)
 
     results = disassemble(values, explain=args.explain)
