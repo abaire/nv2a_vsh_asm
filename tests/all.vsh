@@ -16,4 +16,3 @@ rcp oPos, r2
 rsq oPos.x, r2
 sge r1, r2, v1
 slt r1, r2, v1
-; sub r2, v2, r2  # TODO: Implement

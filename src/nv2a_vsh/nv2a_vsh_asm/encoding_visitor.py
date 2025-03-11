@@ -348,7 +348,7 @@ def process_combined_operations(
             ilu_ops.append(entry)
         else:
             opcode = entry[0].opcode
-            if opcode in {vsh_encoder.Opcode.OPCODE_ADD, vsh_encoder.Opcode.OPCODE_SUB}:
+            if opcode == vsh_encoder.Opcode.OPCODE_ADD:
                 entry[0].swap_inputs_b_c()
             mac_ops.append(entry)
 
@@ -699,18 +699,6 @@ class EncodingVisitor(VshVisitor):
         return (
             vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_SLT, *operands),
             f"slt {self._prettify_operands(operands)}",
-        )
-
-    def visitOp_sub(self, ctx: VshParser.Op_subContext) -> tuple[Instruction, str]:
-        operands = self.visitChildren(ctx)
-        if len(operands) != 1:
-            msg = f"operands {operands!r} must have exactly one element"
-            raise ValueError(msg)
-
-        operands = operands[0]
-        return (
-            vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_SUB, *operands),
-            f"sub {self._prettify_operands(operands)}",
         )
 
     def visitP_a0_output(self, ctx: VshParser.P_a0_outputContext):

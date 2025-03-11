@@ -88,7 +88,6 @@ class Opcode(enum.Enum):
     OPCODE_RSQ = enum.auto()
     OPCODE_SGE = enum.auto()
     OPCODE_SLT = enum.auto()
-    OPCODE_SUB = enum.auto()
 
     def is_ilu(self) -> bool:
         """Returns True if this opcode is an ILU operation."""
@@ -354,13 +353,6 @@ def _process_opcode(ins: Instruction, out: vsh_instruction.VshInstruction) -> tu
             out.mac = MAC.MAC_ARL
             mac = True
 
-        elif opcode == Opcode.OPCODE_SUB:
-            out.mac = MAC.MAC_ADD
-            out.c_negate = True
-            mac = True
-            msg = "TODO: xor negated args"
-            raise EncodingError(msg)
-
         elif opcode == Opcode.OPCODE_MAD:
             out.mac = MAC.MAC_MAD
             mac = True
@@ -525,8 +517,8 @@ def _process_source(ins: Instruction, *, ilu: bool, mac: bool, vsh_ins: vsh_inst
         ins.src_reg[2] = ins.src_reg[0]
         ins.src_reg[0] = None
 
-    if ins.opcode in {Opcode.OPCODE_ADD, Opcode.OPCODE_SUB}:
-        # ADD/SUB use A and C. Swap src reg 1 and 2
+    if ins.opcode == Opcode.OPCODE_ADD:
+        # ADD use A and C. Swap src reg 1 and 2
         if ins.src_reg[2]:
             msg = f"ins.src_reg[2] {ins.src_reg[2]!r} must not be set"
             raise ValueError(msg)

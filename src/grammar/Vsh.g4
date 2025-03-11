@@ -35,7 +35,6 @@ operation :
     | op_rsq
     | op_sge
     | op_slt
-    | op_sub
     ;
 
 op_add : OP_ADD p_out_in_in ;
@@ -57,7 +56,6 @@ op_rcp : OP_RCP p_out_in ;
 op_rsq : OP_RSQ p_out_in ;
 op_sge : OP_SGE p_out_in_in ;
 op_slt : OP_SLT p_out_in_in ;
-op_sub : OP_SUB p_out_in_in ;
 
 p_a0_in : p_a0_output SEP p_input ;
 p_out_in : p_output SEP p_input ;
@@ -222,7 +220,6 @@ OP_MOV : 'MOV' | 'mov' ;
 OP_MUL : 'MUL' | 'mul' ;
 OP_SGE : 'SGE' | 'sge' ;
 OP_SLT : 'SLT' | 'slt' ;
-OP_SUB : 'SUB' | 'sub' ;
 
 OP_ARL : 'ARL' | 'arl' ;
 OP_DPH : 'DPH' | 'dph' ;

@@ -94,8 +94,6 @@ simply translates operands into machine code.
   * Per component greater than or equal comparison. `dst.C = 1.0 if src1.C >= src2.C else 0.0; for C in {x, y, z, w}`
 * `SLT dst, src1, src2`
   * Per component less than comparison. `dst.C = 1.0 if src1.C < src2.C else 0.0; for C in {x, y, z, w}`
-* `SUB dst, src1, src2`
-    * Difference `dst = src1 - src2`
 
 ## Registers
 
