@@ -131,7 +131,7 @@ def test_negated_bare_const_swizzled():
     _assert_final_marker(results)
     assert len(results) == 2
     _assert_vsh([0x00000000, 0x008EA0AA, 0x05541FFC, 0x32000FF8], results[0])
-    # xemu decompiles this to the same isntruction
+    # xemu decompiles this to the same instruction
     # _assert_vsh([0x00000000, 0x008EA0AA, 0x0554BFFD, 0x72000000], results[0])
 
 
@@ -142,7 +142,7 @@ def test_negated_bracketed_const_swizzled():
     _assert_final_marker(results)
     assert len(results) == 2
     _assert_vsh([0x00000000, 0x008EA0AA, 0x05541FFC, 0x32000FF8], results[0])
-    # xemu decompiles this to the same isntruction
+    # xemu decompiles this to the same instruction
     # _assert_vsh([0x00000000, 0x008EA0AA, 0x0554BFFD, 0x72000000], results[0])
 
 
