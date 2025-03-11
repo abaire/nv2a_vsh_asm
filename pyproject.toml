@@ -7,7 +7,7 @@ name = "nv2a-vsh"
 dynamic = ["version"]
 description = 'Assembler/disassembler for the Xbox nv2a vertex shader'
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = "Unlicense"
 keywords = ["nv2a", "vertex shader", "assembler", "xbox", "nvidia"]
 authors = [
@@ -20,8 +20,6 @@ classifiers = [
   "Operating System :: OS Independent",
   "Topic :: Software Development :: Assemblers",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
