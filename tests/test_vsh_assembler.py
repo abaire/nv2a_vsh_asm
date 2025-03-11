@@ -413,7 +413,7 @@ def test_norm3__valid():
         [
             [0, 10486811, 137760876, 672141304],
             [0, 134217755, 137760768, 1343295480],
-            [0, 4195355, 159393900, 771756024],
+            [0, 4195355, 167651436, 771756024],
         ],
         results,
     )
@@ -491,7 +491,7 @@ def test_simple():
 
     expected_instructions = _extract_expected_instructions(source)
     assert len(results) == len(expected_instructions)
-    for expected, actual in zip(expected_instructions, results):
+    for expected, actual in zip(expected_instructions, results, strict=True):
         _assert_vsh(expected, actual)
 
 
@@ -506,7 +506,7 @@ def test_ngb_lava():
 
     expected_instructions = _extract_expected_instructions(source)
     assert len(results) == len(expected_instructions)
-    for expected, actual in zip(expected_instructions, results):
+    for expected, actual in zip(expected_instructions, results, strict=True):
         _assert_vsh(expected, actual)
 
 
@@ -521,7 +521,7 @@ def test_trivial_end_to_end_shader():
 
     expected_instructions = _extract_expected_instructions(source)
     assert len(results) == len(expected_instructions)
-    for expected, actual in zip(expected_instructions, results):
+    for expected, actual in zip(expected_instructions, results, strict=True):
         _assert_vsh(expected, actual)
 
 

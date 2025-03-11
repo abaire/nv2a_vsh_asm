@@ -23,7 +23,7 @@ jobs:
 
     strategy:
       matrix:
-        python-version: [ "3.8", "3.9", "3.10", "3.11", "3.12", "3.13" ]
+        python-version: [ "3.10", "3.11", "3.12", "3.13" ]
 
     steps:
       - uses: actions/checkout@v3
@@ -71,13 +71,13 @@ jobs:
       - name: Download source artifact
         uses: actions/download-artifact@v4
         with:
-          name: source-3.8
+          name: source-3.10
           path: dist
 
       - name: Download wheel artifact
         uses: actions/download-artifact@v4
         with:
-          name: wheel-3.8
+          name: wheel-3.10
           path: dist
 
       - uses: pypa/gh-action-pypi-publish@release/v1

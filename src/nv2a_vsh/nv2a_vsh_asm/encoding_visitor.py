@@ -882,9 +882,9 @@ class EncodingVisitor(VshVisitor):
         destination_register_xyz = destination_register.copy_with_mask(vsh_encoder_defs.WRITEMASK_XYZ)
         temp_register_write = vsh_encoder.destination_for_temp_register(temp_register)
         temp_register_x = temp_register_write.copy_with_mask(vsh_encoder_defs.WRITEMASK_X)
-        temp_register_read_x = temp_register.copy_with_swizzle(vsh_encoder_defs.SWIZZLE_X)
+        temp_register_read_x = temp_register.copy_with_swizzle(vsh_encoder_defs.SWIZZLE_XXXX)
         temp_register_w = temp_register_write.copy_with_mask(vsh_encoder_defs.WRITEMASK_W)
-        temp_register_read_w = temp_register.copy_with_swizzle(vsh_encoder_defs.SWIZZLE_W)
+        temp_register_read_w = temp_register.copy_with_swizzle(vsh_encoder_defs.SWIZZLE_WWWW)
 
         return [
             (
