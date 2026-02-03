@@ -116,20 +116,33 @@ def test_disassembler_paired_no_explain() -> None:
     )
 
 
-def test_disassembler_multi_output_no_explain() -> None:
-    def _test(expected, value):
-        result = disassemble.disassemble([value], explain=False)
-        assert [expected] == result
-
-    _test(
-        "DP4 oPos.z, R6, c[98] + DP4 R0.x, R6, c[98]",
-        [0x00000000, 0x00EC401B, 0x64365800, 0x28002800],
-    )
-
-    _test(
-        "MAD oPos.xyz, R12.xyz, R1.x, c[1].xyz + MAD R11.xy, R12.xyz, R1.x, c[1].xyz",
-        [0x00000000, 0x0080201A, 0xC4002868, 0x3CB0E800],
-    )
+@pytest.mark.parametrize(
+    ("expected", "value"),
+    [
+        (
+            "DP4 oPos.z, R6, c[98] + DP4 R0.x, R6, c[98]",
+            [0x00000000, 0x00EC401B, 0x64365800, 0x28002800],
+        ),
+        (
+            "MAD oPos.xyz, R12.xyz, R1.x, c[1].xyz + MAD R11.xy, R12.xyz, R1.x, c[1].xyz",
+            [0x00000000, 0x0080201A, 0xC4002868, 0x3CB0E800],
+        ),
+        (
+            "ADD oPos.xyz, R12, v4 + ADD R0.xyz, R12, v4",
+            [0x00000000, 0x0060081B, 0xC436106C, 0x2E00E800],
+        ),
+        (
+            "RCP oPos.x, R12.x + RCP R1.x, R12.x",
+            [0x00000000, 0x400001B, 0x08361003, 0x10188804],
+        ),
+        (
+            "MOV R0.x, R12.x + RCP oPos.x, R12.x + RCP R1.x, R12.x",
+            [0x00000000, 0x04200000, 0xC4361003, 0x18088804],
+        ),
+    ],
+)
+def test_disassembler_multi_output_no_explain(expected: str, value: list[int]) -> None:
+    assert disassemble.disassemble([value], explain=False) == [expected]
 
 
 def test_disassembler_constant_register_output_no_explain() -> None:

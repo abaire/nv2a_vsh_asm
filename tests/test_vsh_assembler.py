@@ -496,7 +496,7 @@ def test_multi_ouput_mac_instruction_add():
     results = asm.output
     _assert_final_marker(results)
     assert len(results) == 2
-    _assert_vsh([0x00000000, 0x0060001B, 0x0836106C, 0x2E00E800], results[0])
+    _assert_vsh([0x00000000, 0x0060081B, 0xC436106C, 0x2E00E800], results[0])
 
 
 def test_multi_ouput_ilu_instruction():
@@ -505,7 +505,7 @@ def test_multi_ouput_ilu_instruction():
     results = asm.output
     _assert_final_marker(results)
     assert len(results) == 2
-    _assert_vsh([0x00000000, 0x400001B, 0x836106C, 0x20188804], results[0])
+    _assert_vsh([0x00000000, 0x400001B, 0x08361003, 0x10188804], results[0])
 
 
 def test_multi_ouput_mac_and_ilu_instruction():
