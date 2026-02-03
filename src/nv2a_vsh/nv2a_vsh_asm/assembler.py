@@ -43,7 +43,7 @@ class Assembler:
         parser.addErrorListener(self._error_listener)
 
         visitor = encoding_visitor.EncodingVisitor()
-        program = visitor.visit(parser.program())
+        program = visitor.visit(parser.program())  # type: ignore[func-returns-value]
 
         if self._error_listener.has_errors:
             return False

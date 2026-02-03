@@ -126,6 +126,11 @@ def test_disassembler_multi_output_no_explain() -> None:
         [0x00000000, 0x00EC401B, 0x64365800, 0x28002800],
     )
 
+    _test(
+        "MAD oPos.xyz, R12.xyz, R1.x, c[1].xyz + MAD R11.xy, R12.xyz, R1.x, c[1].xyz",
+        [0x00000000, 0x0080201A, 0xC4002868, 0x3CB0E800],
+    )
+
 
 def test_disassembler_constant_register_output_no_explain() -> None:
     def _test(expected, value):

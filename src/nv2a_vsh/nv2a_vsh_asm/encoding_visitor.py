@@ -13,7 +13,9 @@ from __future__ import annotations
 
 import collections
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
+
+from antlr4.tree.Tree import ParseTree, TerminalNode, Tree
 
 from nv2a_vsh.grammar.vsh.VshLexer import VshLexer
 from nv2a_vsh.grammar.vsh.VshVisitor import VshVisitor
@@ -22,8 +24,10 @@ from nv2a_vsh.nv2a_vsh_asm.encoding_error import EncodingError, EncodingErrorSub
 from nv2a_vsh.nv2a_vsh_asm.vsh_encoder_defs import InputRegisters, OutputRegisters
 
 if TYPE_CHECKING:
+    from typing import Any
+
     from antlr4.ParserRuleContext import ParserRuleContext
-    from antlr4.Token import CommonToken
+    from antlr4.Token import CommonToken, Token
 
     from nv2a_vsh.grammar.vsh.VshParser import VshParser
     from nv2a_vsh.nv2a_vsh_asm.vsh_encoder import DestinationRegister, Instruction, SourceRegister
@@ -140,7 +144,14 @@ _UNIFORM_TYPE_TO_SIZE = {
 
 
 def get_text_from_context(ctx: ParserRuleContext) -> str:
-    return ctx.start.getInputStream().getText(ctx.start.start, ctx.stop.stop)
+    if ctx.start is None or ctx.stop is None:
+        return ""
+
+    stream = ctx.start.getInputStream()
+    if stream is None:
+        return ""
+
+    return stream.getText(ctx.start.start, ctx.stop.stop)
 
 
 class _Uniform:
@@ -417,6 +428,22 @@ def process_combined_operations(
     return combined
 
 
+def _get_safe_token(token: Token | None) -> Token:
+    """Helper to satisfy mypy that a token is not None."""
+    if token is None:
+        msg = "Expected a token, but got None."
+        raise ValueError(msg)
+    return token
+
+
+def _get_terminal_node(node: Any) -> Any:
+    """Helper to cast a child node to a TerminalNode."""
+    if not isinstance(node, TerminalNode):
+        msg = f"Expected TerminalNode, got {type(node)}"
+        raise TypeError(msg)
+    return node
+
+
 class EncodingVisitor(VshVisitor):
     """Visitor that generates a list of vsh instructions."""
 
@@ -424,36 +451,42 @@ class EncodingVisitor(VshVisitor):
         super().__init__()
         self._uniforms: dict[str, _Uniform] = {}
 
+    def visit(self, tree: Tree) -> Any:
+        return super().visit(tree)  # type: ignore[func-returns-value]
+
+    def visitChildren(self, node: ParseTree) -> Any:
+        return super().visitChildren(node)  # type: ignore[func-returns-value]
+
     def visitStatement(self, ctx: VshParser.StatementContext) -> list[tuple[Instruction, str]]:
-        return self.visitChildren(ctx)
+        return cast("list[tuple[Instruction, str]]", self.visitChildren(ctx))
 
     def visitUniform_type(self, ctx: VshParser.Uniform_typeContext):
         if not ctx.children or len(ctx.children) != 1:
-            msg = f"Uniform macro missing type type declaration on line {ctx.start.line}\nctx.children {ctx.children!r} must have exactly one element"
+            token = _get_safe_token(ctx.start)
+            msg = f"Uniform macro missing type type declaration on line {token.line}\nctx.children {ctx.children!r} must have exactly one element"
             raise ValueError(msg)
-        if ctx.children[0].symbol.type not in _UNIFORM_TYPE_TO_SIZE:
-            msg = (
-                f"ctx.children[0].symbol.type {ctx.children[0].symbol.type!r} must be one of {_UNIFORM_TYPE_TO_SIZE!r}"
-            )
+        node = _get_terminal_node(ctx.children[0])
+        if node.getSymbol().type not in _UNIFORM_TYPE_TO_SIZE:
+            msg = f"ctx.children[0].symbol.type {node.getSymbol().type!r} must be one of {_UNIFORM_TYPE_TO_SIZE!r}"
             raise ValueError(msg)
 
-        return ctx.children[0].symbol.type
+        return node.getSymbol().type
 
     def visitUniform_declaration(self, ctx: VshParser.Uniform_declarationContext) -> None:
         uniform_type = self.visitChildren(ctx)[0]
-        if len(ctx.children) != 3:
+        if not ctx.children or len(ctx.children) != 3:
             msg = f"ctx.children {ctx.children!r} must have exactly three elements"
             raise ValueError(msg)
 
-        if ctx.children[2].symbol.tokenIndex < 0:
-            msg = f"Uniform macro missing constant index on line {ctx.start.line}\nctx.children[2].symbol.tokenIndex = {ctx.children[2].symbol.tokenIndex}"
+        if _get_terminal_node(ctx.children[2]).getSymbol().tokenIndex < 0:
+            msg = f"Uniform macro missing constant index on line {_get_safe_token(ctx.start).line}\nctx.children[2].symbol.tokenIndex = {_get_terminal_node(ctx.children[2]).getSymbol().tokenIndex}"
             raise ValueError(msg)
 
-        identifier = ctx.children[0].symbol.text
-        value = int(ctx.children[2].symbol.text)
+        identifier = _get_terminal_node(ctx.children[0]).getSymbol().text
+        value = int(_get_terminal_node(ctx.children[2]).getSymbol().text)
 
         if identifier in self._uniforms:
-            msg = f"Duplicate definition of uniform {identifier} at line {ctx.start.line}"
+            msg = f"Duplicate definition of uniform {identifier} at line {_get_safe_token(ctx.start).line}"
             raise EncodingError(msg)
         self._uniforms[identifier] = _Uniform(identifier, uniform_type, value)
 
@@ -471,7 +504,7 @@ class EncodingVisitor(VshVisitor):
             msg = f"operations {operations!r} must have exactly 2, 3, or 4 elements."
             raise ValueError(msg)
 
-        return process_combined_operations(operations, ctx.start.line)
+        return process_combined_operations(operations, _get_safe_token(ctx.start).line)
 
     def visitOp_add(self, ctx: VshParser.Op_addContext) -> tuple[Instruction, str]:
         operands = self.visitChildren(ctx)
@@ -702,10 +735,14 @@ class EncodingVisitor(VshVisitor):
         )
 
     def visitP_a0_output(self, ctx: VshParser.P_a0_outputContext):
-        target = ctx.children[0].symbol
+        if not ctx.children:
+            # Should not happen based on grammar usually, but for safety
+            msg = "Unexpected empty children"
+            raise ValueError(msg)
+        target = _get_terminal_node(ctx.children[0]).getSymbol()
         mask = None
         if len(ctx.children) > 1:
-            mask = ctx.children[1].symbol
+            mask = _get_terminal_node(ctx.children[1]).getSymbol()
         return self._process_output(target, mask)
 
     def visitP_output(self, ctx: VshParser.P_outputContext):
@@ -717,28 +754,36 @@ class EncodingVisitor(VshVisitor):
 
             target = operands[0]
             if target.type != _REG_CONSTANT:
-                msg = f"target.type { target.type!r} must be _REG_CONSTANT {_REG_CONSTANT!r}"
+                msg = f"target.type {target.type!r} must be _REG_CONSTANT {_REG_CONSTANT!r}"
                 raise ValueError(msg)
         else:
-            target = ctx.children[0].symbol
+            if not ctx.children:
+                msg = "Unexpected empty children"
+                raise ValueError(msg)
+            target = _get_terminal_node(ctx.children[0]).getSymbol()
         mask = None
-        if len(ctx.children) > 1:
-            mask = ctx.children[1].symbol
+        if ctx.children and len(ctx.children) > 1:
+            mask = _get_terminal_node(ctx.children[1]).getSymbol()
         return self._process_output(target, mask)
 
     def visitP_input_raw(self, ctx: VshParser.P_input_rawContext):
         subtree = self.visitChildren(ctx)
-        source = subtree[0] if subtree else ctx.children[0].symbol
+        if subtree:
+            source = subtree[0]
+        else:
+            if not ctx.children:
+                return None
+            source = _get_terminal_node(ctx.children[0]).getSymbol()
+
         swizzle = None
-        if len(ctx.children) > 1:
-            swizzle = ctx.children[1].symbol
+        if ctx.children and len(ctx.children) > 1:
+            swizzle = _get_terminal_node(ctx.children[1]).getSymbol()
         return self._process_input(source, swizzle)
 
     def visitP_input_negated(self, ctx: VshParser.P_input_negatedContext):
         contents = self.visitChildren(ctx)
-        if len(contents) != 1:
-            msg = f"contents {contents!r} must have exactly one element"
-            raise ValueError(msg)
+        if not contents or len(contents) != 1:
+            return None
 
         src_reg = contents[0]
         src_reg.set_negated()
@@ -746,10 +791,15 @@ class EncodingVisitor(VshVisitor):
 
     def visitP_input(self, ctx: VshParser.P_inputContext):
         contents = self.visitChildren(ctx)
+        if not contents:
+            return None
         return contents[0]
 
     def visitReg_const(self, ctx: VshParser.Reg_constContext) -> _ConstantRegister:
-        reg = ctx.children[0].symbol
+        if not ctx.children:
+            msg = "Unexpected empty children"
+            raise ValueError(msg)
+        reg = _get_terminal_node(ctx.children[0]).getSymbol()
         if reg.type == VshLexer.REG_Cx_BARE:
             register = int(reg.text[1:])
             return _ConstantRegister(register)
@@ -775,18 +825,21 @@ class EncodingVisitor(VshVisitor):
         raise EncodingError(msg)
 
     def visitUniform_const(self, ctx: VshParser.Uniform_constContext):
-        name = ctx.children[0].symbol.text
+        if not ctx.children:
+            msg = "Unexpected empty children"
+            raise ValueError(msg)
+        name = _get_terminal_node(ctx.children[0]).getSymbol().text
         uniform: _Uniform | None = self._uniforms.get(name)
         if not uniform:
-            msg = f"Undefined uniform {name} used at line {ctx.start.line}"
+            msg = f"Undefined uniform {name} used at line {_get_safe_token(ctx.start).line}"
             raise EncodingError(msg, subtype=EncodingErrorSubtype.UNDEFINED_UNIFORM)
 
         offset = 0
-        if len(ctx.children) > 1:
-            offset = int(ctx.children[2].symbol.text)
+        if ctx.children and len(ctx.children) > 1:
+            offset = int(_get_terminal_node(ctx.children[2]).getSymbol().text)
 
         if offset >= uniform.size:
-            msg = f"Uniform offset out of range (max is {uniform.size - 1}) at line {ctx.start.line}"
+            msg = f"Uniform offset out of range (max is {uniform.size - 1}) at line {_get_safe_token(ctx.start).line}"
             raise EncodingError(msg, subtype=EncodingErrorSubtype.UNIFORM_OFFSET_OUT_OF_RANGE)
 
         return _ConstantRegister(uniform.value + offset, from_uniform=(name, offset))
@@ -794,18 +847,26 @@ class EncodingVisitor(VshVisitor):
     def visitMacro_matrix_4x4_multiply(
         self, ctx: VshParser.Macro_matrix_4x4_multiplyContext
     ) -> list[tuple[Instruction, str]]:
-        usage = f"  Usage: {ctx.children[0].symbol.text} <destination> <source> <matrix_uniform>"
+        if not ctx.children:
+            msg = "Unexpected empty children"
+            raise ValueError(msg)
+        usage = (
+            f"  Usage: {_get_terminal_node(ctx.children[0]).getSymbol().text} <destination> <source> <matrix_uniform>"
+        )
         try:
-            operands = self.visitChildren(ctx)
-        except TypeError as err:
-            msg = f"Invalid parameters to {ctx.children[0].symbol.text} on line {ctx.start.line}: '{get_text_from_context(ctx)}'.\n{usage}"
-            raise ValueError(msg) from err
+            operands = self.visitChildren(ctx)  # type: ignore[func-returns-value]
+            if operands:
+                operands = [op for op in operands if op is not None]
         except EncodingError as err:
-            if err.subtype == EncodingErrorSubtype.UNDEFINED_UNIFORM:
-                msg = f"Invalid matrix uniform parameter on line {ctx.start.line}: '{get_text_from_context(ctx)}'.\n{usage}"
+            if err.subtype == EncodingErrorSubtype.UNDEFINED_UNIFORM and "<missing" not in str(err):
+                msg = f"Invalid matrix uniform parameter on line {_get_safe_token(ctx.start).line}: '{get_text_from_context(ctx)}'.\n{usage}"
             else:
-                msg = f"Invalid parameters to {ctx.children[0].symbol.text} on line {ctx.start.line}: '{get_text_from_context(ctx)}'.\n{usage}"
+                msg = f"Invalid parameters to {_get_terminal_node(ctx.children[0]).getSymbol().text} on line {_get_safe_token(ctx.start).line}: '{get_text_from_context(ctx)}'.\n{usage}"
             raise ValueError(msg) from err
+
+        if not operands or len(operands) < 3:
+            msg = f"Invalid parameters to {_get_terminal_node(ctx.children[0]).getSymbol().text} on line {_get_safe_token(ctx.start).line}: '{get_text_from_context(ctx)}'.\n{usage}"
+            raise ValueError(msg)
 
         matrix_uniform = operands[2]
         uniform = matrix_uniform.from_uniform
@@ -813,10 +874,10 @@ class EncodingVisitor(VshVisitor):
             uniform_name, uniform_offset = uniform
             uniform_def = self._uniforms.get(uniform_name)
             if not uniform_def or uniform_def.size != 4:
-                msg = f"Invalid matrix uniform type on line {ctx.start.line}: '{get_text_from_context(ctx)}'. Uniform must be matrix type.\n{usage}"
+                msg = f"Invalid matrix uniform type on line {_get_safe_token(ctx.start).line}: '{get_text_from_context(ctx)}'. Uniform must be matrix type.\n{usage}"
                 raise ValueError(msg)
             if uniform_offset:
-                msg = f"Invalid matrix uniform offset on line {ctx.start.line}: '{get_text_from_context(ctx)}'. Uniform must be referenced at offset 0.\n{usage}"
+                msg = f"Invalid matrix uniform offset on line {_get_safe_token(ctx.start).line}: '{get_text_from_context(ctx)}'. Uniform must be referenced at offset 0.\n{usage}"
                 raise ValueError(msg)
 
         destination_register = operands[0]
@@ -852,19 +913,31 @@ class EncodingVisitor(VshVisitor):
         ]
 
     def visitMacro_norm_3(self, ctx: VshParser.Macro_norm_3Context):
-        usage = f"  Usage: {ctx.children[0].symbol.text} <destination> <source> <temp_register_rw>"
+        if not ctx.children:
+            msg = "Unexpected empty children"
+            raise ValueError(msg)
+        usage = (
+            f"  Usage: {_get_terminal_node(ctx.children[0]).getSymbol().text} <destination> <source> <temp_register_rw>"
+        )
         try:
-            operands = self.visitChildren(ctx)
+            operands = self.visitChildren(ctx)  # type: ignore[func-returns-value]
+            if operands:
+                operands = [op for op in operands if op is not None]
         except TypeError as err:
-            msg = f"Invalid parameters to {ctx.children[0].symbol.text} on line {ctx.start.line}: '{get_text_from_context(ctx)}'.\n{usage}"
+            # Just in case `visitChildren` itself raises TypeError (unlikely here but handled for safety like before)
+            msg = f"Invalid parameters to {_get_terminal_node(ctx.children[0]).getSymbol().text} on line {_get_safe_token(ctx.start).line}: '{get_text_from_context(ctx)}'.\n{usage}"
             raise ValueError(msg) from err
+
+        if not operands or len(operands) < 3:
+            msg = f"Invalid parameters to {_get_terminal_node(ctx.children[0]).getSymbol().text} on line {_get_safe_token(ctx.start).line}: '{get_text_from_context(ctx)}'.\n{usage}"
+            raise ValueError(msg)
 
         destination_register: DestinationRegister = operands[0]
         source_register: SourceRegister = operands[1]
         temp_register: SourceRegister = operands[2]
 
         if temp_register.file != vsh_encoder.RegisterFile.PROGRAM_TEMPORARY or temp_register.index == vsh_encoder.R12:
-            msg = f"Invalid temp register parameter on line {ctx.start.line}. Temp register must be read/write: '{get_text_from_context(ctx)}'.\n{usage}"
+            msg = f"Invalid temp register parameter on line {_get_safe_token(ctx.start).line}. Temp register must be read/write: '{get_text_from_context(ctx)}'.\n{usage}"
             raise ValueError(msg)
 
         destination_register_xyz = destination_register.copy_with_mask(vsh_encoder_defs.WRITEMASK_XYZ)

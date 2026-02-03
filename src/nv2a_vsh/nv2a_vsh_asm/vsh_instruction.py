@@ -1,6 +1,6 @@
 """Provides functionality for manipulating nv2a vertex shader machine code."""
 
-# ruff: noqa: SLF001 Private member accessed
+
 # ruff: noqa: PLR2004 Magic value used in comparison
 # ruff: noqa: RUF012 Mutable class attributes should be annotated with `typing.ClassVar`
 
