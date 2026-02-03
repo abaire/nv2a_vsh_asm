@@ -562,6 +562,13 @@ def _process_source(ins: Instruction, *, ilu: bool, mac: bool, vsh_ins: vsh_inst
     if ins.opcode == Opcode.OPCODE_ADD:
         # ADD use A and C. Swap src reg 1 and 2
         if ins.src_reg[2]:
+            # If there is a secondary output, the swap was already handled in process_combined_operations
+            if ins.secondary_dst_reg:
+                if not ins.src_reg[1]:
+                    return
+                msg = f"ins.src_reg[1] {ins.src_reg[1]!r} and ins.src_reg[2] {ins.src_reg[2]!r} must not both be set on ADD"
+                raise ValueError(msg)
+
             msg = f"ins.src_reg[2] {ins.src_reg[2]!r} must not be set"
             raise ValueError(msg)
         ins.src_reg[2] = ins.src_reg[1]

@@ -490,6 +490,15 @@ def test_multi_ouput_mac_instruction():
     # Amgiguous result:  _assert_vsh([0x00000000, 0x0080201A, 0xC4002868, 0x7CB0E800], results[0])
 
 
+def test_multi_ouput_mac_instruction_add():
+    asm = Assembler("ADD oPos.xyz, R12, iSpecular + ADD R0.xyz, R12, iSpecular")
+    asm.assemble()
+    results = asm.output
+    _assert_final_marker(results)
+    assert len(results) == 2
+    _assert_vsh([0x00000000, 0x0060001B, 0x0836106C, 0x2E00E800], results[0])
+
+
 def test_simple():
     all_input = os.path.join(_RESOURCE_PATH, "simple.vsh")
     with open(all_input) as infile:
