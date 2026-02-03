@@ -499,6 +499,24 @@ def test_multi_ouput_mac_instruction_add():
     _assert_vsh([0x00000000, 0x0060001B, 0x0836106C, 0x2E00E800], results[0])
 
 
+def test_multi_ouput_ilu_instruction():
+    asm = Assembler("RCP oPos.x, R12.x + RCP R1.x, R12.x")
+    asm.assemble()
+    results = asm.output
+    _assert_final_marker(results)
+    assert len(results) == 2
+    _assert_vsh([0x00000000, 0x400001B, 0x836106C, 0x20188804], results[0])
+
+
+def test_multi_ouput_mac_and_ilu_instruction():
+    asm = Assembler("RCP oPos.x, R12.x + RCP R1.x, R12.x + MOV R0.x, R12.x")
+    asm.assemble()
+    results = asm.output
+    _assert_final_marker(results)
+    assert len(results) == 2
+    _assert_vsh([0x00000000, 0x04200000, 0xC4361003, 0x18088804], results[0])
+
+
 def test_simple():
     all_input = os.path.join(_RESOURCE_PATH, "simple.vsh")
     with open(all_input) as infile:

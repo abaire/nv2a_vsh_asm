@@ -554,7 +554,13 @@ def _process_source(ins: Instruction, *, ilu: bool, mac: bool, vsh_ins: vsh_inst
     if ilu and not mac:
         # ILU instructions only use input C. Swap src reg 0 and 2.
         if ins.src_reg[1] or ins.src_reg[2]:
-            msg = f"Neither ins.src_reg[1] {ins.src_reg[1]!r} nor ins.src_reg[2] {ins.src_reg[2]!r} may not be set"
+            if ins.secondary_dst_reg:
+                if not ins.src_reg[0] and not ins.src_reg[1]:
+                    return
+                msg = f"ins.src_reg[0] {ins.src_reg[0]!r} and ins.src_reg[1] {ins.src_reg[1]!r} must not be set on multi-output ILU instruction"
+                raise ValueError(msg)
+
+            msg = f"ins.src_reg[1] {ins.src_reg[1]!r} nor ins.src_reg[2] {ins.src_reg[2]!r} must not be be set on ILU instructions"
             raise ValueError(msg)
         ins.src_reg[2] = ins.src_reg[0]
         ins.src_reg[0] = None
