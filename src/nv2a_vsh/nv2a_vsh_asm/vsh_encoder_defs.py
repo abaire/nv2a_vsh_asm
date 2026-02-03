@@ -237,7 +237,7 @@ class OutputRegisters(enum.IntEnum):
     REG_A0 = 9999
 
 
-DESTINATION_REGISTER_TO_NAME_MAP = {
+DESTINATION_REGISTER_TO_NAME_MAP: dict[int, str] = {
     OutputRegisters.REG_POS: "oPos",
     OutputRegisters.REG_DIFFUSE: "oDiffuse",
     OutputRegisters.REG_SPECULAR: "oSpecular",
@@ -252,7 +252,7 @@ DESTINATION_REGISTER_TO_NAME_MAP = {
     OutputRegisters.REG_A0: "A0",
 }
 
-DESTINATION_REGISTER_TO_NAME_MAP_SHORT = {
+DESTINATION_REGISTER_TO_NAME_MAP_SHORT: dict[int, str] = {
     OutputRegisters.REG_POS: "oPos",
     OutputRegisters.REG_DIFFUSE: "oD0",
     OutputRegisters.REG_SPECULAR: "oD1",
