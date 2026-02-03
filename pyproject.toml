@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling>=1.11.1"]
+requires = ["hatchling>=1.11.1", "antlr4-tools>=0.2"]
 build-backend = "hatchling.build"
 
 [project]
@@ -96,7 +96,6 @@ exclude = [
 [tool.hatch.build.targets.wheel.hooks.custom]
 path = "hatch_build_antlr.py"
 description = "Generate ANTLR4 parsers"
-dependencies = ["antlr4-tools~=0.2.2"]
 
 [tool.hatch.envs.default]
 type = "virtual"
