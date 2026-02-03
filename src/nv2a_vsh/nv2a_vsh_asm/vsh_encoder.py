@@ -152,10 +152,11 @@ class SourceRegister:
             return NotImplemented
         return other.as_tuple() == self.as_tuple()
 
+    def __hash__(self):
+        return hash(self.as_tuple())
+
     def __repr__(self):
-        return (
-            f"{type(self).__name__}({self.file} " f"{self.index} " f"{vsh_instruction.get_swizzle_name(self.swizzle)})"
-        )
+        return f"{type(self).__name__}({self.file} {self.index} {vsh_instruction.get_swizzle_name(self.swizzle)})"
 
     def copy_with_swizzle(self, swizzle: int) -> SourceRegister:
         return SourceRegister(self.file, self.index, swizzle=swizzle, rel_addr=self.rel_addr, negate=self.negate)
@@ -307,6 +308,19 @@ class Instruction:
             and other.paired_ilu_dst_reg == self.paired_ilu_dst_reg
             and other.paired_ilu_secondary_dst_reg == self.paired_ilu_secondary_dst_reg
             and self.identical_inputs(other)
+        )
+
+    def __hash__(self) -> int:
+        return hash(
+            (
+                self.opcode,
+                self.dst_reg,
+                self.secondary_dst_reg,
+                self.paired_ilu_opcode,
+                self.paired_ilu_dst_reg,
+                self.paired_ilu_secondary_dst_reg,
+                self.input_signature(),
+            )
         )
 
     def __repr__(self) -> str:

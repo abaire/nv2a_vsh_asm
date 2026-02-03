@@ -117,8 +117,7 @@ def entrypoint():
             "--text",
             action="store_true",
             help=(
-                "Treat the source file as textual, it must contain a list of "
-                "hexadecimal integers separated by commas."
+                "Treat the source file as textual, it must contain a list of hexadecimal integers separated by commas."
             ),
         )
 

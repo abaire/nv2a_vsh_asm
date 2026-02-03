@@ -36,6 +36,12 @@ jobs:
       - name: Install Hatch
         uses: pypa/hatch@257e27e51a6a5616ed08a39a408a21c35c9931bc
 
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+              antlr4
+
       - name: Hatch fmt and type check
         run: |
           hatch fmt --check

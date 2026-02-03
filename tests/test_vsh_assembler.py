@@ -49,7 +49,7 @@ def test_empty():
     asm = Assembler("")
     asm.assemble()
 
-    assert [] == asm.output
+    assert asm.output == []
 
 
 def test_mov_out_in_swizzled():
@@ -207,7 +207,7 @@ def test_uniform_missing_index():
 
 
 def test_uniform_vector_bare():
-    asm = Assembler("#test_vector vector 15\n" "DPH oT0.x, v4, #test_vector")
+    asm = Assembler("#test_vector vector 15\nDPH oT0.x, v4, #test_vector")
     asm.assemble()
     results = asm.output
     _assert_final_marker(results)
@@ -216,7 +216,7 @@ def test_uniform_vector_bare():
 
 
 def test_uniform_vector_bracketed():
-    asm = Assembler("#test_vector vector 15\n" "DPH oT0.x, v4, #test_vector[0]")
+    asm = Assembler("#test_vector vector 15\nDPH oT0.x, v4, #test_vector[0]")
     asm.assemble()
     results = asm.output
     _assert_final_marker(results)
@@ -252,7 +252,7 @@ def test_uniform_matrix4_with_offset():
 
 
 def test_uniform_vector_output_bare():
-    asm = Assembler("#test_vector vector 15\n" "DPH #test_vector, v4, c[10]")
+    asm = Assembler("#test_vector vector 15\nDPH #test_vector, v4, c[10]")
     asm.assemble()
     results = asm.output
     _assert_final_marker(results)
@@ -261,7 +261,7 @@ def test_uniform_vector_output_bare():
 
 
 def test_uniform_vector_output_indexed():
-    asm = Assembler("#test_vector vector 15\n" "DPH #test_vector[0], v4, c[10]")
+    asm = Assembler("#test_vector vector 15\nDPH #test_vector[0], v4, c[10]")
     asm.assemble()
     results = asm.output
     _assert_final_marker(results)
@@ -270,7 +270,7 @@ def test_uniform_vector_output_indexed():
 
 
 def test_uniform_vector_output_bare_swizzle():
-    asm = Assembler("#test_vector vector 15\n" "DPH #test_vector.xy, v4, c[10]")
+    asm = Assembler("#test_vector vector 15\nDPH #test_vector.xy, v4, c[10]")
     asm.assemble()
     results = asm.output
     _assert_final_marker(results)
@@ -279,7 +279,7 @@ def test_uniform_vector_output_bare_swizzle():
 
 
 def test_uniform_vector_output_indexed_swizzle():
-    asm = Assembler("#test_vector vector 15\n" "DPH #test_vector[0].xy, v4, c[10]")
+    asm = Assembler("#test_vector vector 15\nDPH #test_vector[0].xy, v4, c[10]")
     asm.assemble()
     results = asm.output
     _assert_final_marker(results)
@@ -288,7 +288,7 @@ def test_uniform_vector_output_indexed_swizzle():
 
 
 def test_uniform_matrix_output_bare():
-    asm = Assembler("#test_matrix matrix4 15\n" "DPH #test_matrix, v4, c[10]")
+    asm = Assembler("#test_matrix matrix4 15\nDPH #test_matrix, v4, c[10]")
     asm.assemble()
     results = asm.output
     _assert_final_marker(results)
@@ -297,7 +297,7 @@ def test_uniform_matrix_output_bare():
 
 
 def test_uniform_matrix_output_indexed():
-    asm = Assembler("#test_matrix matrix4 14\n" "DPH #test_matrix[1], v4, c[10]")
+    asm = Assembler("#test_matrix matrix4 14\nDPH #test_matrix[1], v4, c[10]")
     asm.assemble()
     results = asm.output
     _assert_final_marker(results)
@@ -306,7 +306,7 @@ def test_uniform_matrix_output_indexed():
 
 
 def test_uniform_matrix_output_bare2():
-    asm = Assembler("#output matrix4 188\n" "mov #output[0], v3")
+    asm = Assembler("#output matrix4 188\nmov #output[0], v3")
     asm.assemble()
     results = asm.output
     _assert_final_marker(results)
@@ -315,31 +315,31 @@ def test_uniform_matrix_output_bare2():
 
 
 def test_matmul4x4_too_few_parameters():
-    asm = Assembler("#test_matrix matrix4 14\n" "%matmul4x4 r0")
+    asm = Assembler("#test_matrix matrix4 14\n%matmul4x4 r0")
     with pytest.raises(ValueError, match=re.escape("Invalid parameters to %matmul4x4 on line 2")):
         asm.assemble()
 
 
 def test_matmul4x4_invalid_matrix_uniform_parameter_not_defined():
-    asm = Assembler("#test_matrix matrix4 14\n" "%matmul4x4 r0 r0 r0")
+    asm = Assembler("#test_matrix matrix4 14\n%matmul4x4 r0 r0 r0")
     with pytest.raises(ValueError, match=re.escape("Invalid matrix uniform parameter on line 2")):
         asm.assemble()
 
 
 def test_matmul4x4_invalid_matrix_uniform_type():
-    asm = Assembler("#test_matrix vector 14\n" "%matmul4x4 r0 iPos #test_matrix")
+    asm = Assembler("#test_matrix vector 14\n%matmul4x4 r0 iPos #test_matrix")
     with pytest.raises(ValueError, match=re.escape("Invalid matrix uniform type on line 2")):
         asm.assemble()
 
 
 def test_matmul4x4_invalid_matrix_uniform_offset():
-    asm = Assembler("#test_matrix matrix4 14\n" "%matmul4x4 r0 iPos #test_matrix[1]")
+    asm = Assembler("#test_matrix matrix4 14\n%matmul4x4 r0 iPos #test_matrix[1]")
     with pytest.raises(ValueError, match=re.escape("Invalid matrix uniform offset on line 2")):
         asm.assemble()
 
 
 def test_matmul4x4_valid():
-    asm = Assembler("#test_matrix matrix4 14\n" "%matmul4x4 r0 iPos #test_matrix")
+    asm = Assembler("#test_matrix matrix4 14\n%matmul4x4 r0 iPos #test_matrix")
     asm.assemble()
     results = asm.output
     _assert_final_marker(results)
@@ -356,7 +356,7 @@ def test_matmul4x4_valid():
 
 
 def test_matmul4x4_valid_with_following_instruction():
-    asm = Assembler("#test_matrix matrix4 14\n" "%matmul4x4 r0 iPos #test_matrix\n" "mov r1, r0")
+    asm = Assembler("#test_matrix matrix4 14\n%matmul4x4 r0 iPos #test_matrix\nmov r1, r0")
     asm.assemble()
     results = asm.output
     _assert_final_marker(results)
@@ -478,6 +478,16 @@ def test_paired_ilu_non_r1_temporary_writes_to_r1():
     _assert_final_marker(results)
     assert len(results) == 2
     _assert_vsh([0x00000000, 0x08EC001B, 0x64361800, 0x90188800], results[0])
+
+
+def test_multi_ouput_mac_instruction():
+    asm = Assembler("MAD oPos.xyz, R12.xyz, R1.x, c[1].xyz + MAD R11.xy, R12.xyz, R1.x, c[1].xyz")
+    asm.assemble()
+    results = asm.output
+    _assert_final_marker(results)
+    assert len(results) == 2
+    _assert_vsh([0x00000000, 0x0080201A, 0xC4002868, 0x3CB0E800], results[0])
+    # Amgiguous result:  _assert_vsh([0x00000000, 0x0080201A, 0xC4002868, 0x7CB0E800], results[0])
 
 
 def test_simple():
