@@ -45,6 +45,7 @@ import sys
 from nv2a_vsh.nv2a_vsh_asm import vsh_instruction
 from nv2a_vsh.nv2a_vsh_asm.encoding_error import EncodingError
 from nv2a_vsh.nv2a_vsh_asm.vsh_encoder_defs import (
+    DESTINATION_REGISTER_TO_NAME_MAP,
     ILU,
     MAC,
     OMUX_ILU,
@@ -58,11 +59,28 @@ from nv2a_vsh.nv2a_vsh_asm.vsh_encoder_defs import (
     VSH_MASK,
     WRITEMASK_NAME,
     WRITEMASK_XYZW,
+    InputRegisters,
     OutputRegisters,
 )
 from nv2a_vsh.nv2a_vsh_asm.vsh_encoder_defs import (
     make_swizzle as make_swizzle,
 )
+
+SOURCE_REGISTER_TO_NAME_MAP = {
+    InputRegisters.REG_POS: "iPos (v0)",
+    InputRegisters.REG_WEIGHT: "iWeight (v1)",
+    InputRegisters.REG_NORMAL: "iNormal (v2)",
+    InputRegisters.REG_DIFFUSE: "iDiffuse (v3)",
+    InputRegisters.REG_SPECULAR: "iSpecular (v4)",
+    InputRegisters.REG_FOG_COORD: "iFog (v5)",
+    InputRegisters.REG_POINT_SIZE: "iPts (v6)",
+    InputRegisters.REG_BACK_DIFFUSE: "iBackDiffuse (v7)",
+    InputRegisters.REG_BACK_SPECULAR: "iBackSpecular (v8)",
+    InputRegisters.REG_TEX0: "iTex0 (v9)",
+    InputRegisters.REG_TEX1: "iTex1 (v10)",
+    InputRegisters.REG_TEX2: "iTex2 (v11)",
+    InputRegisters.REG_TEX3: "iTex3 (v12)",
+}
 
 
 class Opcode(enum.Enum):
@@ -156,7 +174,12 @@ class SourceRegister:
         return hash(self.as_tuple())
 
     def __repr__(self):
-        return f"{type(self).__name__}({self.file} {self.index} {vsh_instruction.get_swizzle_name(self.swizzle)})"
+        if self.file == RegisterFile.PROGRAM_INPUT:
+            pretty_name = SOURCE_REGISTER_TO_NAME_MAP.get(self.index, f"v{self.index}")
+        else:
+            pretty_name = f"R{self.index}"
+
+        return f"{type(self).__name__}({self.file} {pretty_name} {vsh_instruction.get_swizzle_name(self.swizzle)})"
 
     def copy_with_swizzle(self, swizzle: int) -> SourceRegister:
         return SourceRegister(self.file, self.index, swizzle=swizzle, rel_addr=self.rel_addr, negate=self.negate)
@@ -199,7 +222,12 @@ class DestinationRegister:
 
     def pretty_string(self) -> str:
         """Returns a pretty-printed string describing this destination register."""
-        return f"{self.file} {self.index}{WRITEMASK_NAME[self.write_mask]}"
+        if self.file == RegisterFile.PROGRAM_OUTPUT:
+            pretty_name = DESTINATION_REGISTER_TO_NAME_MAP.get(self.index, f"o{self.index}")
+        else:
+            pretty_name = f"R{self.index}"
+
+        return f"{self.file} {pretty_name}{WRITEMASK_NAME[self.write_mask]}"
 
     def copy_with_mask(self, write_mask: int) -> DestinationRegister:
         """Returns a copy of this DestinationRegister with a different write_mask."""
