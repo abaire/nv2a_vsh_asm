@@ -35,6 +35,8 @@ class GenerateParserBuildHook(BuildHookInterface):
         old_argv = sys.argv
         sys.argv = [
             "antlr4",
+            "-v",
+            "4.13.2",
             "-o",
             str(output_dir),
             "-Xexact-output-dir",
