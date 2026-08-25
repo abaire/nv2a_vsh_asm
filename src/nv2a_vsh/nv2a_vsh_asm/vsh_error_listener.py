@@ -1,7 +1,5 @@
 """Capturing ANTLR ErrorListener implementation."""
 
-# ruff: noqa:  N802 Function name should be lowercase
-# ruff: noqa:  N803 Argument name should be lowercase
 
 # pylint: disable=invalid-name
 # pylint: disable=missing-function-docstring

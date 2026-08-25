@@ -17,6 +17,11 @@ class EncodingErrorSubtype(IntEnum):
 class EncodingError(Exception):
     """Represents a fatal error during encoding."""
 
-    def __init__(self, *args, subtype: EncodingErrorSubtype = EncodingErrorSubtype.GENERAL, **kwargs):
+    def __init__(
+        self,
+        *args,
+        subtype: EncodingErrorSubtype = EncodingErrorSubtype.GENERAL,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
         self.subtype = subtype

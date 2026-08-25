@@ -5,9 +5,6 @@
 # pylint: disable=useless-return
 
 # Func/arg names are dictated by Antlr generated code.
-# ruff: noqa: N802 Function name should be lowercase
-# ruff: noqa: N803 Argument name should be lowercase
-# ruff: noqa: PLR2004 Magic value used in comparison
 
 from __future__ import annotations
 
@@ -30,7 +27,11 @@ if TYPE_CHECKING:
     from antlr4.Token import CommonToken, Token
 
     from nv2a_vsh.grammar.vsh.VshParser import VshParser
-    from nv2a_vsh.nv2a_vsh_asm.vsh_encoder import DestinationRegister, Instruction, SourceRegister
+    from nv2a_vsh.nv2a_vsh_asm.vsh_encoder import (
+        DestinationRegister,
+        Instruction,
+        SourceRegister,
+    )
 
 _DESTINATION_MASK_LOOKUP = {
     ".x": vsh_encoder_defs.WRITEMASK_X,
@@ -165,7 +166,13 @@ class _Uniform:
 
 
 class _ConstantRegister:
-    def __init__(self, index, *, is_relative: bool = False, from_uniform: tuple[str, int] | None = None):
+    def __init__(
+        self,
+        index,
+        *,
+        is_relative: bool = False,
+        from_uniform: tuple[str, int] | None = None,
+    ):
         self.index = index
         self.is_relative = is_relative
         self.from_uniform = from_uniform
@@ -895,19 +902,39 @@ class EncodingVisitor(VshVisitor):
 
         return [
             (
-                vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_DP4, destination_x, source_register, matrix_0),
+                vsh_encoder.Instruction(
+                    vsh_encoder.Opcode.OPCODE_DP4,
+                    destination_x,
+                    source_register,
+                    matrix_0,
+                ),
                 f"dp4 {self._prettify_operands([destination_x, source_register, matrix_0])}",
             ),
             (
-                vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_DP4, destination_y, source_register, matrix_1),
+                vsh_encoder.Instruction(
+                    vsh_encoder.Opcode.OPCODE_DP4,
+                    destination_y,
+                    source_register,
+                    matrix_1,
+                ),
                 f"dp4 {self._prettify_operands([destination_y, source_register, matrix_1])}",
             ),
             (
-                vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_DP4, destination_z, source_register, matrix_2),
+                vsh_encoder.Instruction(
+                    vsh_encoder.Opcode.OPCODE_DP4,
+                    destination_z,
+                    source_register,
+                    matrix_2,
+                ),
                 f"dp4 {self._prettify_operands([destination_z, source_register, matrix_2])}",
             ),
             (
-                vsh_encoder.Instruction(vsh_encoder.Opcode.OPCODE_DP4, destination_w, source_register, matrix_3),
+                vsh_encoder.Instruction(
+                    vsh_encoder.Opcode.OPCODE_DP4,
+                    destination_w,
+                    source_register,
+                    matrix_3,
+                ),
                 f"dp4 {self._prettify_operands([destination_w, source_register, matrix_3])}",
             ),
         ]
@@ -950,7 +977,10 @@ class EncodingVisitor(VshVisitor):
         return [
             (
                 vsh_encoder.Instruction(
-                    vsh_encoder.Opcode.OPCODE_DP3, temp_register_x, source_register, source_register
+                    vsh_encoder.Opcode.OPCODE_DP3,
+                    temp_register_x,
+                    source_register,
+                    source_register,
                 ),
                 f"dp3 {self._prettify_operands([temp_register_x, source_register, source_register])}",
             ),
@@ -960,7 +990,10 @@ class EncodingVisitor(VshVisitor):
             ),
             (
                 vsh_encoder.Instruction(
-                    vsh_encoder.Opcode.OPCODE_MUL, destination_register_xyz, source_register, temp_register_read_w
+                    vsh_encoder.Opcode.OPCODE_MUL,
+                    destination_register_xyz,
+                    source_register,
+                    temp_register_read_w,
                 ),
                 f"mul {self._prettify_operands([destination_register_xyz, source_register, temp_register_read_w])}",
             ),

@@ -40,14 +40,32 @@ nv2avshd = "nv2a_vsh:run_disassemble"
 [tool.hatch.version]
 path = "src/nv2a_vsh/__about__.py"
 
+[tool.hatch.envs.hatch-static-analysis]
+config-path = "none"
+dependencies = [
+  "mypy==2.3.1",
+  "ruff==0.16.4",
+]
+
 [tool.hatch.envs.types]
 type = "virtual"
 path = ".venv-mypy"
 extra-dependencies = [
-  "mypy>=1.0.0",
+  "mypy==2.3.1",
 ]
 [tool.hatch.envs.types.scripts]
 check = "mypy --install-types --non-interactive {args:src/nv2a_vsh tests}"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+extend-select = [
+  "I",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["nv2a_vsh"]
 
 [tool.mypy]
 exclude = [

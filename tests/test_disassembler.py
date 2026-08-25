@@ -1,6 +1,5 @@
 """Tests for disassembler functionality."""
 
-# ruff: noqa: SLF001 Private member accessed
 
 # pylint: disable=missing-function-docstring
 # pylint: disable=protected-access

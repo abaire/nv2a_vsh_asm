@@ -2,8 +2,6 @@
 
 """Assembles nv2a vertex shader machine code."""
 
-# ruff: noqa: T201 `print` found
-
 from __future__ import annotations
 
 import argparse

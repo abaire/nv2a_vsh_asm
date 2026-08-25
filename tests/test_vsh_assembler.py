@@ -195,7 +195,10 @@ def test_relative_const_spaced_a_second():
 def test_uniform_missing_type():
     asm = Assembler("#missing_type 96\n")
 
-    with pytest.raises(ValueError, match=re.escape("Uniform macro missing type type declaration on line 1")):
+    with pytest.raises(
+        ValueError,
+        match=re.escape("Uniform macro missing type type declaration on line 1"),
+    ):
         asm.assemble()
 
 

@@ -30,9 +30,9 @@ def _process_operations(operations) -> list[str]:
         for param in operation[1:]:
             match = BAD_COMMA_RE.match(param)
             if not match:
-                param = param.replace("(", " ").replace(")", " ")  # noqa: PLW2901 loop variable overwritten
+                param = param.replace("(", " ").replace(")", " ")
             else:
-                param = f"{match.group(1)} {match.group(2)}.{match.group(3)}"  # noqa: PLW2901 loop variable overwritten
+                param = f"{match.group(1)} {match.group(2)}.{match.group(3)}"
 
             ret.append(f"{prefix}{param}")
             prefix = "+ "
@@ -48,7 +48,7 @@ def _process_file(infile) -> list[str]:
     in_instruction = False
 
     for line in infile:
-        line = line.strip()  # noqa: PLW2901 loop variable overwritten
+        line = line.strip()
 
         if not in_instruction:
             match = OPCODE_RE.match(line)
@@ -76,7 +76,7 @@ def _main(filename):
     with open(filename) as infile:
         lines = _process_file(infile)
         for line in lines:
-            print(line)  # noqa: T201 `print` found
+            print(line)
 
 
 if __name__ == "__main__":

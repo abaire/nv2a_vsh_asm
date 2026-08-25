@@ -1,7 +1,6 @@
 """Custom build hook to generate parser using Antlr."""
 
 # ruff: noqa: TRY002 Create your own exception
-# ruff: noqa: T201 `print` found
 
 from __future__ import annotations
 

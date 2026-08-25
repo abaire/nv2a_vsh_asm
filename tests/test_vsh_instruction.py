@@ -4,7 +4,11 @@ import re
 
 import pytest
 
-from nv2a_vsh.nv2a_vsh_asm.vsh_instruction import VshInstruction, explain, vsh_diff_instructions
+from nv2a_vsh.nv2a_vsh_asm.vsh_instruction import (
+    VshInstruction,
+    explain,
+    vsh_diff_instructions,
+)
 
 
 def test_default_explain():
@@ -59,7 +63,10 @@ def test_default_explain():
     ],
 )
 def test_explain_with_invalid_input(data):
-    with pytest.raises(ValueError, match=re.escape(f"set_values must be exactly 4 elements but was {data!r}")):
+    with pytest.raises(
+        ValueError,
+        match=re.escape(f"set_values must be exactly 4 elements but was {data!r}"),
+    ):
         explain(data)
 
 
@@ -119,7 +126,10 @@ def test_explain_with_default_opcode():
     ],
 )
 def test_diff_instructions_invalid_expected(data):
-    with pytest.raises(ValueError, match=re.escape(f"expected {data!r} must be a 4-integer encoded instruction")):
+    with pytest.raises(
+        ValueError,
+        match=re.escape(f"expected {data!r} must be a 4-integer encoded instruction"),
+    ):
         vsh_diff_instructions(data, [0x0, 0x0, 0x0, 0x0], ignore_final_flag=False)
 
 
@@ -133,7 +143,10 @@ def test_diff_instructions_invalid_expected(data):
     ],
 )
 def test_diff_instructions_invalid_actual(data):
-    with pytest.raises(ValueError, match=re.escape(f"actual {data!r} must be a 4-integer encoded instruction")):
+    with pytest.raises(
+        ValueError,
+        match=re.escape(f"actual {data!r} must be a 4-integer encoded instruction"),
+    ):
         vsh_diff_instructions([0x0, 0x0, 0x0, 0x0], data, ignore_final_flag=False)
 
 

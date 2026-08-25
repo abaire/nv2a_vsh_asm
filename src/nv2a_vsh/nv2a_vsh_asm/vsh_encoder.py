@@ -182,7 +182,13 @@ class SourceRegister:
         return f"{type(self).__name__}({self.file} {pretty_name} {vsh_instruction.get_swizzle_name(self.swizzle)})"
 
     def copy_with_swizzle(self, swizzle: int) -> SourceRegister:
-        return SourceRegister(self.file, self.index, swizzle=swizzle, rel_addr=self.rel_addr, negate=self.negate)
+        return SourceRegister(
+            self.file,
+            self.index,
+            swizzle=swizzle,
+            rel_addr=self.rel_addr,
+            negate=self.negate,
+        )
 
 
 class DestinationRegister:
@@ -499,7 +505,7 @@ def _process_destination(
         if reg.file == RegisterFile.PROGRAM_TEMPORARY:
             if is_paired and ilu and reg.index != 1:
                 # TODO: Implement a better system for tracking warnings.
-                print(  # noqa: T201 `print` found
+                print(
                     f"Warning: Paired ILU instruction writes to R{reg.index} but will silently be treated as an R1 write. Emitting R1 target.",
                     file=sys.stderr,
                 )

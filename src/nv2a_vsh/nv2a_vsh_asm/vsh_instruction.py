@@ -1,10 +1,6 @@
 """Provides functionality for manipulating nv2a vertex shader machine code."""
 
 
-# ruff: noqa: PLR2004 Magic value used in comparison
-# ruff: noqa: RUF012 Mutable class attributes should be annotated with `typing.ClassVar`
-# ruff: noqa: SLF001 Private member accessed
-
 # pylint: disable=invalid-name
 # pylint: disable=missing-function-docstring
 # pylint: disable=protected-access
@@ -587,7 +583,7 @@ class VshInstruction:
             msg = f"Invalid field index {src_index}"
             raise ValueError(msg)
 
-    def set_negate_field(self, src_index: int, val: bool):  # noqa: FBT001 Boolean-typed positional argument
+    def set_negate_field(self, src_index: int, val: bool):
         """Sets the negate field for the given src_index."""
         if src_index == 0:
             self.a_negate = val
@@ -861,39 +857,33 @@ def vsh_diff_instructions(expected: list[int], actual: list[int], *, ignore_fina
     e_b = _B.from_buffer_copy(expected[1].to_bytes(4, byteorder=sys.byteorder))
     a_b = _B.from_buffer_copy(actual[1].to_bytes(4, byteorder=sys.byteorder))
 
-    for f in _B._fields_:
-        e_val = getattr(e_b, f[0])
-        a_val = getattr(a_b, f[0])
+    for name, _ctype, size in _B._fields_:  # type: ignore[misc]
+        e_val = getattr(e_b, name)
+        a_val = getattr(a_b, name)
 
         if e_val != a_val:
-            name = f[0]
-
-            differences.append(f"{name} 0x{e_val:x} ({e_val:0{f[2]}b}) != actual 0x{a_val:x} ({a_val:0{f[2]}b})")  # type: ignore[misc]
+            differences.append(f"{name} 0x{e_val:x} ({e_val:0{size}b}) != actual 0x{a_val:x} ({a_val:0{size}b})")
 
     e_c = _C.from_buffer_copy(expected[2].to_bytes(4, byteorder=sys.byteorder))
     a_c = _C.from_buffer_copy(actual[2].to_bytes(4, byteorder=sys.byteorder))
-    for f in _C._fields_:
-        e_val = getattr(e_c, f[0])
-        a_val = getattr(a_c, f[0])
+    for name, _ctype, size in _C._fields_:  # type: ignore[misc]
+        e_val = getattr(e_c, name)
+        a_val = getattr(a_c, name)
 
         if e_val != a_val:
-            name = f[0]
-
-            differences.append(f"{name} 0x{e_val:x} ({e_val:0{f[2]}b}) != actual 0x{a_val:x} ({a_val:0{f[2]}b})")  # type: ignore[misc]
+            differences.append(f"{name} 0x{e_val:x} ({e_val:0{size}b}) != actual 0x{a_val:x} ({a_val:0{size}b})")
 
     e_d = _D.from_buffer_copy(expected[3].to_bytes(4, byteorder=sys.byteorder))
     a_d = _D.from_buffer_copy(actual[3].to_bytes(4, byteorder=sys.byteorder))
-    for f in _D._fields_:
-        if ignore_final_flag and f[0] == "FINAL":
+    for name, _ctype, size in _D._fields_:  # type: ignore[misc]
+        if ignore_final_flag and name == "FINAL":
             continue
 
-        e_val = getattr(e_d, f[0])
-        a_val = getattr(a_d, f[0])
+        e_val = getattr(e_d, name)
+        a_val = getattr(a_d, name)
 
         if e_val != a_val:
-            name = f[0]
-
-            differences.append(f"{name} 0x{e_val:x} ({e_val:0{f[2]}b}) != actual 0x{a_val:x} ({a_val:0{f[2]}b})")  # type: ignore[misc]
+            differences.append(f"{name} 0x{e_val:x} ({e_val:0{size}b}) != actual 0x{a_val:x} ({a_val:0{size}b})")
 
     if not differences:
         return ""
