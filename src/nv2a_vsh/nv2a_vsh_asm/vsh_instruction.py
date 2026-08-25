@@ -3,6 +3,7 @@
 
 # ruff: noqa: PLR2004 Magic value used in comparison
 # ruff: noqa: RUF012 Mutable class attributes should be annotated with `typing.ClassVar`
+# ruff: noqa: SLF001 Private member accessed
 
 # pylint: disable=invalid-name
 # pylint: disable=missing-function-docstring

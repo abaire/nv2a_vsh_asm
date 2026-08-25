@@ -428,6 +428,16 @@ def test_paired():
     _assert_vsh([0x00000000, 0x0240081B, 0x1436186C, 0x2F20F824], results[0])
 
 
+# MAC instructions may write to an output register and a temp register, provided they perform the same operation .
+def test_paired_mac_only():
+    asm = Assembler("MUL oPos.xyz, R12, R3 + MUL R0, R12, R3")
+    asm.assemble()
+    results = asm.output
+    _assert_final_marker(results)
+    assert len(results) == 2
+    _assert_vsh([0x00000000, 0x0040001B, 0xC436686C, 0x2F00E800], results[0])
+
+
 def test_arl():
     asm = Assembler("ARL A0, R0.x")
     asm.assemble()
